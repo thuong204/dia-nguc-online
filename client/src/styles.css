@@ -1,0 +1,167 @@
+:root {
+  --bg: #0d0606;
+  --panel: #1a0b0b;
+  --panel-2: #241010;
+  --line: #4a1d17;
+  --text: #f6e7d8;
+  --muted: #b99a8a;
+  --fire: #ff7a2f;
+  --gold: #f5c04a;
+  --blood: #c0262c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: radial-gradient(ellipse at top, #3a0d0b 0%, var(--bg) 60%) fixed;
+  color: var(--text);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+}
+h1, h2, h3 { margin: 0 0 8px; }
+h1 { font-size: 34px; font-weight: 800; color: var(--gold); text-shadow: 0 0 18px #ff4d1a88; }
+h3 { font-size: 15px; color: var(--gold); }
+.small { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+button { font: inherit; cursor: pointer; }
+
+.screen { position: relative; z-index: 5; padding: 24px 16px; max-width: 1320px; margin: 0 auto; }
+.judge { display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 380px); gap: 20px; justify-content: center; align-items: start; padding-top: 6vh; }
+.reborn { display: grid; place-items: center; min-height: 90vh; }
+.card { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 10px 40px #0008; }
+.center { text-align: center; max-width: 520px; }
+.big { font-size: 56px; }
+.seal { width: 64px; height: 64px; border-radius: 12px; display: grid; place-items: center; background: var(--blood); color: #fff; font-size: 34px; font-weight: 800; margin-bottom: 12px; box-shadow: 0 0 24px #ff3b1f88; }
+.seal.spin { animation: pulse 0.8s ease-in-out infinite alternate; margin: 0 auto 12px; }
+@keyframes pulse { from { transform: scale(0.92) rotate(-4deg); } to { transform: scale(1.06) rotate(4deg); } }
+.sub { color: var(--muted); line-height: 1.6; }
+form label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+input, textarea { width: 100%; margin-top: 6px; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f0606; color: var(--text); font: inherit; resize: none; }
+input:focus, textarea:focus { outline: 2px solid var(--fire); border-color: transparent; }
+.primary { margin-top: 18px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: linear-gradient(180deg, #ff8a3d, #d9381e); color: #fff; font-weight: 800; box-shadow: 0 6px 20px #ff4d1a55; }
+.primary:hover { filter: brightness(1.1); }
+
+.feed { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow: auto; font-size: 13px; }
+.feed li { display: block; text-align: left; padding: 8px 0; border-bottom: 1px dashed var(--line); line-height: 1.45; color: var(--muted); }
+.feed li b { color: var(--text); }
+.feed li.pardon b { color: var(--gold); }
+.feed li.reborn b { color: #ffb6d9; }
+
+.overlay { position: fixed; inset: 0; background: #000b; display: grid; place-items: center; z-index: 30; padding: 16px; }
+.verdict-card { width: min(440px, 100%); text-align: center; }
+.v-level { font-size: 40px; color: var(--fire); }
+.pun { color: var(--muted); font-style: italic; }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(180deg, #ffcf5a, #f08a1c); color: #2a0a00; font-weight: 800; padding: 12px 20px; border-radius: 12px; z-index: 40; box-shadow: 0 10px 30px #0009; max-width: calc(100% - 32px); text-align: center; }
+
+/* ---------- màn chơi 3D ---------- */
+.game { position: fixed; inset: 0; overflow: hidden; background: #000; z-index: 1; }
+.game.behind { visibility: hidden; }
+.view { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
+.view canvas { touch-action: none; cursor: grab; }
+.view canvas:active { cursor: grabbing; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--gold); font-weight: 800; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.45s; z-index: 4; }
+#fade.show { opacity: 1; }
+
+.hud-top, .hud-bottom, .side, .side-toggle { position: absolute; z-index: 3; }
+.hud-top { top: 16px; left: 16px; width: min(440px, calc(100% - 90px)); padding: 12px 16px; border-radius: 14px; background: #120505b8; border: 1px solid var(--line); backdrop-filter: blur(6px); }
+.floor-title { font-size: 20px; font-weight: 800; color: var(--gold); }
+.floor-pun { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+.han { font-size: 15px; color: #ffb08a; font-weight: 600; margin-left: 4px; }
+.task { font-size: 13px; color: #ffe3b0; margin: -4px 0 6px; line-height: 1.4; }
+.goal { font-size: 14px; font-weight: 800; color: #fff; background: #ff6a2a26; border: 1px solid #ff6a2a55; border-radius: 8px; padding: 5px 9px; margin-bottom: 8px; }
+.prog-label { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.prog { height: 12px; border-radius: 99px; background: #2a0f0c; border: 1px solid var(--line); overflow: hidden; }
+.prog-bar { height: 100%; background: linear-gradient(90deg, #ff4d1a, var(--gold)); transition: width 0.15s; }
+
+.side { top: 16px; right: 16px; bottom: 150px; width: 290px; display: flex; flex-direction: column; gap: 12px; }
+.panel { background: #120505c4; border: 1px solid var(--line); border-radius: 14px; padding: 14px; backdrop-filter: blur(6px); min-height: 0; }
+.side .feed-card { flex: 1; display: flex; flex-direction: column; }
+.side .feed { max-height: none; flex: 1; }
+.floors { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.floors li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 8px; border-radius: 8px; color: var(--muted); }
+.floors li.cur { background: #ff6a2a22; color: var(--text); outline: 1px solid var(--fire); }
+.floors li .n { color: var(--fire); font-weight: 800; width: 22px; flex: none; }
+.floors li .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-toggle { display: none; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #120505d0; color: var(--text); font-size: 20px; }
+
+.hud-bottom { left: 50%; bottom: 14px; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); text-align: center; }
+.hint { display: inline-block; background: #000c; padding: 7px 14px; border-radius: 99px; font-size: 14px; margin-bottom: 8px; color: #ffe3b0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.act { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: #1d0b0bd8; color: var(--text); font-weight: 600; }
+.act:hover { border-color: var(--fire); }
+.act.ready { border-color: var(--fire); box-shadow: 0 0 16px #ff6a2a88; background: #3a1208e0; }
+kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; margin-left: 2px; border: 1px solid #ffffff22; font-family: inherit; }
+.chat { flex: 1 1 220px; }
+.chat input { margin: 0; height: 100%; background: #0f0606d8; }
+.tip { color: var(--muted); font-size: 12px; margin: 8px 0 0; text-shadow: 0 1px 3px #000; }
+
+/* Tầng 1 — Phán Quan đối chất */
+.quiz { position: absolute; z-index: 5; top: 16px; left: 472px; right: 322px; max-width: 560px; margin: 0 auto; padding: 12px 14px; border-radius: 14px; background: #120505d8; border: 1px solid var(--fire); box-shadow: 0 0 24px #ff6a2a44; backdrop-filter: blur(6px); pointer-events: none; }
+.quiz-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-weight: 700; }
+.quiz-time { color: var(--gold); font-size: 16px; font-weight: 800; }
+.quiz-time.hurry { color: #ff4d3a; animation: pulse 0.5s infinite alternate; }
+@keyframes pulse { to { transform: scale(1.25); } }
+.quiz-q { font-size: 18px; font-weight: 800; color: #fff; margin: 4px 0 8px; line-height: 1.35; }
+.quiz-opts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.quiz-opts li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; background: #2a0f0c; border: 1px solid var(--line); font-size: 13px; transition: all 0.2s; }
+.quiz-opts b { flex: none; width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; background: var(--fire); color: #1a0500; }
+.quiz-opts span { flex: 1; }
+.quiz-opts em { flex: none; font-style: normal; color: var(--muted); font-size: 12px; }
+.quiz-opts li.right { background: #1d4a1ccc; border-color: #6dff7a; color: #fff; }
+.quiz-opts li.right b { background: #6dff7a; }
+.quiz-opts li.wrong { opacity: 0.45; }
+.quiz-whisper { margin-top: 8px; font-size: 12px; color: #ff9a9a; font-style: italic; }
+@media (max-width: 1180px) {
+  .quiz { left: 16px; right: auto; width: min(440px, calc(100% - 32px)); top: auto; bottom: 150px; }
+}
+
+/* nhãn trong thế giới 3D */
+.tag { font: 600 13px 'Be Vietnam Pro', sans-serif; color: #f6e7d8; background: #000a; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
+.tag.me { color: #ffcf5a; border: 1px solid #ffcf5a88; }
+.spot-tag { font: 800 14px 'Be Vietnam Pro', sans-serif; color: #ffcf8a; background: #000b; padding: 4px 12px; border-radius: 10px; border: 1px solid #ff7a2f66; white-space: nowrap; }
+.bubble { font: 600 14px 'Be Vietnam Pro', sans-serif; color: #2a0a00; background: #fff6ea; padding: 7px 11px; border-radius: 12px; max-width: 220px; width: max-content; text-align: center; line-height: 1.35; box-shadow: 0 6px 18px #0008; }
+
+@media (max-width: 900px) {
+  .judge { grid-template-columns: 1fr; padding-top: 16px; }
+  .side { display: none; top: 70px; bottom: auto; max-height: 60vh; width: min(300px, calc(100% - 32px)); }
+  .side.open { display: flex; }
+  .side-toggle { display: block; }
+  .tip, kbd { display: none; }
+  .act { flex: 1 1 auto; }
+  .floor-title { font-size: 16px; }
+}
+
+/* vi phạm */
+.strikes { margin-top: 8px; font-size: 12px; color: #ffd0b0; }
+.strikes span { color: var(--muted); }
+.strikes.danger { color: #ff5a4a; font-weight: 800; animation: pulse 0.6s infinite alternate; }
+.strikes.danger span { color: #ff8a7a; }
+
+/* nút âm thanh */
+.mute { position: fixed; z-index: 60; left: 16px; bottom: 16px; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: #120505d0; font-size: 18px; cursor: pointer; }
+.game ~ .mute { left: auto; right: 16px; bottom: 16px; }
+
+/* điện Diêm Vương */
+.tribunal { position: fixed; inset: 0; background: #0a0203; }
+.tribunal .view { position: absolute; inset: 0; }
+.dialog { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); background: #0d0303e8; border: 1px solid #7a2a1a; border-radius: 16px; padding: 16px 20px 14px; box-shadow: 0 0 40px #000c, inset 0 0 30px #3a080844; cursor: pointer; backdrop-filter: blur(4px); }
+.dialog-name { display: inline-block; margin: -30px 0 8px; padding: 4px 14px; border-radius: 8px; font-weight: 800; font-size: 14px; background: #5a0d0a; color: #ffd27a; border: 1px solid #c8902a; }
+.dialog.hac .dialog-name { background: #111; color: #eee; border-color: #555; }
+.dialog.bach .dialog-name { background: #eee; color: #300; border-color: #fff; }
+.dialog.phan .dialog-name { background: #22224a; color: #cfd0ff; border-color: #6a6acf; }
+.dialog.me .dialog-name { background: #3a2a08; color: #ffcf5a; }
+.dialog-text { font-size: 19px; line-height: 1.5; color: #f6e7d8; min-height: 58px; }
+.dialog.diem .dialog-text { font-size: 21px; font-weight: 700; color: #ffe0b0; text-shadow: 0 0 12px #ff4a0055; }
+.dialog.me .dialog-text { font-style: italic; color: #ffcf5a; }
+.dialog-next { text-align: right; font-size: 12px; color: var(--muted); min-height: 16px; }
+.dialog-answer { margin-top: 10px; cursor: default; }
+.dialog-answer .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.dialog-answer .chips button { padding: 7px 12px; border-radius: 99px; border: 1px solid #7a2a1a; background: #2a0a08; color: #ffd0b0; font: 600 13px 'Be Vietnam Pro', sans-serif; cursor: pointer; }
+.dialog-answer .chips button:hover { border-color: var(--fire); background: #4a120a; }
+.dialog-answer .row { display: flex; gap: 8px; }
+.dialog-answer input { flex: 1; margin: 0; }
+.dialog-answer .row .primary { width: auto; padding: 0 22px; margin: 0; }
+.descend { margin-top: 10px; }
+@media (max-width: 600px) {
+  .dialog-text { font-size: 16px; }
+  .dialog.diem .dialog-text { font-size: 17px; }
+}
+.tribunal ~ .mute { top: 16px; right: 16px; left: auto; bottom: auto; }

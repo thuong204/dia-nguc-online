@@ -1,0 +1,26 @@
+# Thư viện
+node_modules/
+
+# Bản build
+dist/
+*.tsbuildinfo
+
+# Biến môi trường / khoá bí mật
+.env
+.env.*
+!.env.example
+
+# Log
+*.log
+npm-debug.log*
+
+# Editor & hệ điều hành
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Kết quả test
+playwright-report/
+test-results/
