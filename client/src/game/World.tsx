@@ -12,17 +12,17 @@ import { Ghost } from './Ghost.tsx';
 import { drawSign, floorLook, groundTextures, lavaTexture, seeded } from './textures.ts';
 
 export type Look = ReturnType<typeof floorLook>;
-export const stone = new THREE.MeshStandardMaterial({ color: '#4a3a36', roughness: 0.95 });
-export const darkStone = new THREE.MeshStandardMaterial({ color: '#241714', roughness: 1 });
-const lacquer = new THREE.MeshStandardMaterial({ color: '#7a0f0f', roughness: 0.5 });
-const tile = new THREE.MeshStandardMaterial({ color: '#1d1210', roughness: 0.7 });
-export const bronze = new THREE.MeshStandardMaterial({ color: '#7a4a22', metalness: 0.8, roughness: 0.35 });
-export const wood = new THREE.MeshStandardMaterial({ color: '#5a3420', roughness: 0.85 });
+export const stone = new THREE.MeshStandardMaterial({ color: '#b8a4d0', roughness: 0.9 });
+export const darkStone = new THREE.MeshStandardMaterial({ color: '#8a6ab0', roughness: 0.8 });
+const lacquer = new THREE.MeshStandardMaterial({ color: '#ff5a7a', roughness: 0.45 });
+const tile = new THREE.MeshStandardMaterial({ color: '#3ac0b0', roughness: 0.6 });
+export const bronze = new THREE.MeshStandardMaterial({ color: '#e8b040', metalness: 0.5, roughness: 0.35 });
+export const wood = new THREE.MeshStandardMaterial({ color: '#c08a50', roughness: 0.8 });
 const flameMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 1.6, 0.3), toneMapped: false, transparent: true, opacity: 0.9 });
 const goldGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2, 0.6), toneMapped: false });
-const dimRing = new THREE.MeshBasicMaterial({ color: '#3a1a10' });
+const dimRing = new THREE.MeshBasicMaterial({ color: '#ffd04a' });
 const soupMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.4, 1.3), toneMapped: false });
-export const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.4, 0.2), toneMapped: false });
+export const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.4, 2.2), toneMapped: false }); // đèn lồng hồng như bóng bay
 
 export function Flame({ position, scale = 1, light = 30 }: { position: [number, number, number]; scale?: number; light?: number }) {
   const m = useRef<THREE.Mesh>(null);
@@ -65,7 +65,7 @@ export function Ground({ level, look, pieces }: { level: number; look: Look; pie
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   useEffect(() => () => { tex.map.dispose(); tex.emissive.dispose(); }, [tex]);
   useFrame(({ clock }) => {
-    if (mat.current) mat.current.emissiveIntensity = 1.1 + Math.sin(clock.elapsedTime * 1.5) * 0.35;
+    if (mat.current) mat.current.emissiveIntensity = 0.45 + Math.sin(clock.elapsedTime * 1.5) * 0.15;
   });
   const W = BOUNDS.x * 2 + 4, D = BOUNDS.z * 2 + 4;
   const parts: Piece[] = pieces ?? [{ x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2 }];
@@ -82,12 +82,12 @@ export function Ground({ level, look, pieces }: { level: number; look: Look; pie
       {parts.map((q, i) => (
         <mesh key={i} position={[(q.x0 + q.x1) / 2, -1, (q.z0 + q.z1) / 2]} receiveShadow>
           <boxGeometry args={[q.x1 - q.x0, 2, q.z1 - q.z0]} />
-          <meshStandardMaterial attach="material-0" color="#1a0d0b" />
-          <meshStandardMaterial attach="material-1" color="#1a0d0b" />
+          <meshStandardMaterial attach="material-0" color="#7a5aa0" />
+          <meshStandardMaterial attach="material-1" color="#7a5aa0" />
           <meshStandardMaterial ref={i === 0 ? mat : undefined} attach="material-2" map={tex.map} emissiveMap={tex.emissive} color={look.tint} emissive={look.crack} emissiveIntensity={1.1} roughness={0.9} />
-          <meshStandardMaterial attach="material-3" color="#1a0d0b" />
-          <meshStandardMaterial attach="material-4" color="#1a0d0b" />
-          <meshStandardMaterial attach="material-5" color="#1a0d0b" />
+          <meshStandardMaterial attach="material-3" color="#7a5aa0" />
+          <meshStandardMaterial attach="material-4" color="#7a5aa0" />
+          <meshStandardMaterial attach="material-5" color="#7a5aa0" />
         </mesh>
       ))}
     </RigidBody>
@@ -100,12 +100,13 @@ function Lava({ look }: { look: Look }) {
   useFrame(({ clock }, dt) => {
     tex.offset.x += dt * 0.01;
     tex.offset.y += dt * 0.006;
-    if (mat.current) mat.current.emissiveIntensity = 2 + Math.sin(clock.elapsedTime * 0.8) * 0.4;
+    if (mat.current) mat.current.emissiveIntensity = 0.9 + Math.sin(clock.elapsedTime * 0.8) * 0.2;
   });
   return (
     <mesh rotation-x={-Math.PI / 2} position-y={-1.4}>
       <planeGeometry args={[320, 320]} />
-      <meshStandardMaterial ref={mat} color="#200302" emissive={look.lava} emissiveMap={tex} />
+      {/* biển "dung nham" giờ như nước ngọt có ga sủi bọt */}
+      <meshStandardMaterial ref={mat} color={look.lava} emissive={look.lava} emissiveMap={tex} roughness={0.3} />
     </mesh>
   );
 }
@@ -195,8 +196,8 @@ function Gate({ level }: { level: number }) {
       <Guard kind="horse" position={[4.2, 0, 2.5]} />
       {/* Diêm Vương ngồi sau cổng */}
       <group position={[0, 0.5, -9]}>
-        <Ghost hue={2} hat="crown" angryEyes scale={4.2} />
-        <pointLight color="#ff3a20" intensity={80} distance={30} decay={2} position={[0, 6, 6]} />
+        <Ghost hue={2} hat="crown" scale={4.2} />
+        <pointLight color="#ffd27a" intensity={80} distance={30} decay={2} position={[0, 6, 6]} />
       </group>
     </group>
   );
@@ -301,11 +302,12 @@ export function FloatingLanterns() {
   );
 }
 
-const robe = new THREE.MeshStandardMaterial({ color: '#2a0d0a', roughness: 0.8 });
-const bullSkin = new THREE.MeshStandardMaterial({ color: '#3a1a12', roughness: 0.7 });
-const horseSkin = new THREE.MeshStandardMaterial({ color: '#5a3a2a', roughness: 0.7 });
+const robe = new THREE.MeshStandardMaterial({ color: '#6a4ac0', roughness: 0.7 });
+const bullSkin = new THREE.MeshStandardMaterial({ color: '#c0784a', roughness: 0.7 });
+const horseSkin = new THREE.MeshStandardMaterial({ color: '#e0a868', roughness: 0.7 });
 const horn = new THREE.MeshStandardMaterial({ color: '#e8dcc0', roughness: 0.5 });
-const eyeGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.6, 0.1), toneMapped: false });
+const eyeGlow = new THREE.MeshBasicMaterial({ color: '#ffffff' }); // mắt tròn xoe ngây ngô
+const pupil = new THREE.MeshBasicMaterial({ color: '#111111' });
 const steel = new THREE.MeshStandardMaterial({ color: '#b8c0c8', metalness: 0.9, roughness: 0.25 });
 
 /** Quỷ sai Ngưu Đầu (đầu trâu) / Mã Diện (mặt ngựa) cầm đinh ba. */
@@ -346,7 +348,7 @@ export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: st
                 <coneGeometry args={[0.1, 0.6, 8]} />
               </mesh>
             ))}
-            {[-0.18, 0.18].map((x) => <mesh key={x} material={eyeGlow} position={[x, 0.08, 0.36]}><sphereGeometry args={[0.06, 8, 6]} /></mesh>)}
+            {[-0.18, 0.18].map((x) => <group key={x} position={[x, 0.08, 0.36]}><mesh material={eyeGlow}><sphereGeometry args={[0.11, 10, 8]} /></mesh><mesh material={pupil} position-z={0.09}><sphereGeometry args={[0.045, 8, 6]} /></mesh></group>)}
           </group>
         ) : (
           <group position-y={2.6}>
@@ -357,7 +359,7 @@ export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: st
                 <coneGeometry args={[0.08, 0.3, 6]} />
               </mesh>
             ))}
-            {[-0.2, 0.2].map((x) => <mesh key={x} material={eyeGlow} position={[x, 0.08, 0.31]}><sphereGeometry args={[0.06, 8, 6]} /></mesh>)}
+            {[-0.2, 0.2].map((x) => <group key={x} position={[x, 0.08, 0.31]}><mesh material={eyeGlow}><sphereGeometry args={[0.11, 10, 8]} /></mesh><mesh material={pupil} position-z={0.09}><sphereGeometry args={[0.045, 8, 6]} /></mesh></group>)}
           </group>
         )}
         <group position={[0.75, 1.6, 0.2]}>

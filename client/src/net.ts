@@ -175,7 +175,7 @@ async function enterFloor(level: number, ticket: string) {
 
   r.onMessage('chat', ({ id, text }: { id: string; text: string }) => showBubble(id, text));
   r.onMessage('rest', ({ sec, next }: { sec: number; next: number }) => {
-    toast(`😮‍💨 Được nghỉ ${sec} giây… hiệp hình phạt ${next}/${G().need} sắp tới!`);
+    toast(`😮‍💨 Nghỉ giải lao ${sec} giây… hiệp ${next}/${G().need} sắp tới, uống miếng nước đi!`);
     sfx.chain();
     sfx.heartbeat();
     sfx.sob(); // nghỉ giữa hiệp: khóc nấc, van xin
@@ -183,8 +183,8 @@ async function enterFloor(level: number, ticket: string) {
   });
   r.onMessage('bound', ({ id, name }: { id: string; name: string }) => {
     sfx.chain();
-    if (id === r.sessionId) toast('⛓️ Bạn bị trói vào cọc — đao phủ chuẩn bị hành hình!');
-    else toast(`⛓️ ${name} bị trói lên cọc Pháp Trường`);
+    if (id === r.sessionId) toast('🎪 Bạn lên sân khấu Pháp Trường — đao phủ đang khởi động!');
+    else toast(`🎪 ${name} vừa lên sân khấu Pháp Trường`);
   });
   r.onMessage('resist', ({ sec }: { sec: number }) => G().set({ seizeAt: Date.now() + sec * 1000 }));
   r.onMessage('escort', ({ id, name, forced }: { id: string; name: string; forced: boolean }) => {
@@ -193,18 +193,18 @@ async function enterFloor(level: number, ticket: string) {
       G().set({ seizeAt: 0 });
       if (forced) {
         sfx.scream();
-        setTimeout(() => plead('Buông ta ra! Ta không có tội! Tha cho ta…', true), 500);
+        setTimeout(() => plead('Khoan khoan! Cho con nói lời cuối… con chưa ăn sáng mà!', true), 500);
       } else sfx.sob(0.8);
-      toast(forced ? '⛓️ Ngươi dám chống cự! Ngưu Đầu Mã Diện tới lôi ngươi ra Pháp Trường!' : '🙏 Đã nhận tội — Ngưu Đầu Mã Diện áp giải bạn tới Pháp Trường…');
+      toast(forced ? '🐮 Lì quá! Ngưu Đầu Mã Diện tới khiêng bạn ra Pháp Trường!' : '🙏 Đã nhận lỗi — Ngưu Đầu Mã Diện khoác vai dắt bạn ra Pháp Trường…');
     } else {
-      showBubble(id, forced ? 'Buông ta ra!!!' : 'Con xin nhận tội…');
+      showBubble(id, forced ? 'Thả con xuống đi mà!!!' : 'Con xin nhận lỗi ạ…');
       forced ? sfx.scream(0.6) : sfx.sob(0.6);
-      toast(forced ? `⛓️ ${name} chống cự, bị quỷ sai lôi ra Pháp Trường` : `⛓️ ${name} nhận tội, đang bị áp giải ra Pháp Trường`);
+      toast(forced ? `🐮 ${name} lì quá, bị quỷ sai khiêng ra Pháp Trường` : `🙏 ${name} nhận lỗi, đang được dắt ra Pháp Trường`);
     }
   });
   r.onMessage('served', ({ next }: { next: number }) => {
     sfx.bell();
-    toast(next < 1 ? '✅ Chịu đủ hình phạt! Bấm E khi sẵn sàng qua cầu Nại Hà đầu thai.' : `✅ Chịu đủ hình phạt! Được tự do — bấm E khi sẵn sàng lên tầng ${next}.`);
+    toast(next < 1 ? '✅ Xong phim! Bấm E khi sẵn sàng qua cầu Nại Hà đầu thai.' : `✅ Xong phim! Được tự do — bấm E khi sẵn sàng lên tầng ${next}.`);
   });
   r.onMessage('notice', ({ msg }: { msg: string }) => {
     toast(msg);
@@ -221,7 +221,7 @@ async function enterFloor(level: number, ticket: string) {
   const moveTo = async (next: number, t: string, msg: string) => {
     if (leaving) return;
     leaving = true;
-    G().set({ fading: true, travel: next ? `Quỷ sai đang giải bạn lên tầng ${next}…` : null });
+    G().set({ fading: true, travel: next ? `Quỷ sai đang bấm thang máy đưa bạn lên tầng ${next}…` : null });
     room = null;
     await leaveRoom(r);
     await wait(450);
@@ -229,7 +229,7 @@ async function enterFloor(level: number, ticket: string) {
       await enterFloor(next, t);
       toast(msg);
     } catch {
-      toast('Lạc đường giữa các tầng... hãy khai tội lại');
+      toast('Thang máy âm phủ kẹt rồi... hãy khai lại từ đầu nha');
       G().set({ screen: 'judge' });
     }
     G().set({ travel: null });
@@ -237,7 +237,7 @@ async function enterFloor(level: number, ticket: string) {
   };
   r.onMessage('pardoned', ({ level: next, ticket: t }: { level: number; ticket: string }) => {
     sfx.pardon();
-    moveTo(next, t, `⛓️ Chịu đủ hình phạt — bị giải lên tầng ${next}!`);
+    moveTo(next, t, `🎉 Xong phim — lên tầng ${next}!`);
   });
   r.onMessage('reborn', async ({ as }: { as: string }) => {
     if (leaving) return;
@@ -251,7 +251,7 @@ async function enterFloor(level: number, ticket: string) {
   r.onLeave(() => {
     if (room === r) {
       room = null;
-      toast('Mất kết nối với âm phủ... hãy khai tội lại');
+      toast('Rớt mạng âm phủ rồi... hãy khai lại từ đầu nha');
       G().set({ screen: 'judge', level: 0, meReady: false });
     }
   });

@@ -26,7 +26,7 @@ function useMeExec() {
 
 const accept = () => send('accept');
 
-/** Màn hình khi chính mình đang chịu hình: viền máu, chữ to, thanh đếm ngược. */
+/** Màn hình khi chính mình đang chịu phạt: chữ to, thanh đếm ngược. */
 function PainOverlay({ level, served }: { level: number; served: number }) {
   const pain = useGame((s) => s.pain);
   const seq = useGame((s) => s.painSeq);
@@ -39,11 +39,11 @@ function PainOverlay({ level, served }: { level: number; served: number }) {
       <div className="cine-bar top" />
       <div className="cine-bar bottom" />
       <div className="pain-box">
-        <div className="pain-title">⛓️ Hình phạt · {FLOORS[level - 1].name}</div>
+        <div className="pain-title">🤪 Hình phạt · {FLOORS[level - 1].name}</div>
         <div className="pain-what">{TORMENTS[level - 1]}</div>
         <div className="pain-why">
-          {pain === PAIN.enter ? 'Pháp Trường thi hành án — ' : ''}Hiệp {round}/{need}
-          {round >= need ? (level === 1 ? ' · chịu xong là được đầu thai' : ` · chịu xong bị giải lên tầng ${level - 1}`) : ''}
+          {pain === PAIN.enter ? 'Pháp Trường bắt đầu trò vui — ' : ''}Hiệp {round}/{need}
+          {round >= need ? (level === 1 ? ' · ráng xíu nữa là được đầu thai' : ` · ráng xíu nữa là lên tầng ${level - 1}`) : ''}
         </div>
         <div className="pain-bar"><i style={{ animationDuration: `${dur}s` }} /></div>
       </div>
@@ -106,7 +106,7 @@ export function Hud() {
       <PainOverlay level={level} served={ex.served} />
       {topMin ? (
         <button className="pill top-pill" onClick={() => setTopMin(false)}>
-          Tầng {level} · {mine ? `⛓️ hiệp ${ex.served}/${need}` : done ? `✅ bấm E ${nextTxt}` : led ? '⛓️ đang bị áp giải' : '🙏 bấm E nhận tội'} ▾
+          Tầng {level} · {mine ? `⛓️ hiệp ${ex.served}/${need}` : done ? `✅ bấm E ${nextTxt}` : led ? '🚶 đang được dắt đi' : '🙏 bấm E nhận lỗi'} ▾
         </button>
       ) : (
       <header className="hud-top">
@@ -115,17 +115,17 @@ export function Hud() {
         <div className="floor-pun">Tội: {f.sin} — {f.punishment}</div>
         <div className="task">
           {mine
-            ? `⛓️ Bạn đã bị trói lên cọc Pháp Trường. Chịu đủ ${need} hiệp → ${level === 1 ? 'qua cầu Nại Hà đầu thai' : `giải lên tầng ${level - 1}`}.`
+            ? `🤪 Bạn đang lên sân khấu Pháp Trường. Chịu đủ ${need} hiệp → ${level === 1 ? 'qua cầu Nại Hà đầu thai' : `lên tầng ${level - 1}`}.`
             : done
-              ? `✅ Đã chịu đủ ${need} hiệp hình phạt. Bạn được tự do đi lại — bấm E khi sẵn sàng ${nextTxt}.`
+              ? `✅ Xong ${need} hiệp rồi, hú hồn! Tự do đi dạo — bấm E khi sẵn sàng ${nextTxt}.`
               : led
-              ? `⛓️ ${ex.esc === 2 ? 'Ngươi chống cự — b' : 'B'}ị Ngưu Đầu Mã Diện áp giải ra Pháp Trường. Cọc bận thì đứng chờ tới lượt.`
-              : `🙏 Bấm E (hoặc nút “Nhận tội”) ở bất cứ đâu — quỷ sai sẽ áp giải bạn ra cọc. Chịu đủ ${need} hiệp → ${level === 1 ? 'được đầu thai' : `lên tầng ${level - 1}`}.`}
+              ? `🚶 ${ex.esc === 2 ? 'Lì quá nên b' : 'B'}ị Ngưu Đầu Mã Diện khoác vai dắt ra Pháp Trường. Có người đang chịu thì xếp hàng chờ nha.`
+              : `🙏 Bấm E (hoặc nút “Nhận lỗi”) ở bất cứ đâu — quỷ sai sẽ dắt bạn ra Pháp Trường. Chịu đủ ${need} hiệp → ${level === 1 ? 'được đầu thai' : `lên tầng ${level - 1}`}.`}
         </div>
         {mine && (
           <>
             <div className="prog-label">
-              <span>⛓️ Hình phạt đã chịu</span>
+              <span>🤪 Hình phạt đã chịu</span>
               <span>{ex.served}/{need} hiệp</span>
             </div>
             <div className="prog"><div className="prog-bar" style={{ width: `${(ex.served / need) * 100}%` }} /></div>
@@ -156,7 +156,7 @@ export function Hud() {
           </ol>
         </div>
         <div className="panel">
-          <h3>🏆 Chịu hình nhiều tầng nhất</h3>
+          <h3>🏆 Chịu phạt nhiều tầng nhất</h3>
           <Leaderboard limit={5} />
         </div>
         <div className="panel feed-card">
@@ -167,12 +167,12 @@ export function Hud() {
 
       <Joystick />
       <div className="hud-bottom">
-        {!mine && !led && !done && ex.left > 0 && <div className="hint">⏳ Còn {ex.left}s — không nhận tội sẽ bị coi là chống cự, quỷ sai tới lôi đi!</div>}
-        {led && <div className="hint">⛓️ {ex.esc === 2 ? 'Chống cự vô ích! ' : ''}Đang bị áp giải ra Pháp Trường…</div>}
+        {!mine && !led && !done && ex.left > 0 && <div className="hint">⏳ Còn {ex.left}s — chưa nhận lỗi thì quỷ sai tới khoác vai dắt đi đó nha!</div>}
+        {led && <div className="hint">🚶 {ex.esc === 2 ? 'Lì ghê! ' : ''}Đang được dắt ra Pháp Trường…</div>}
         <div className="actions">
           {!mine && !led && (
             <button className="act use ready" onPointerDown={(e) => { noFocus(e); accept(); }}>
-              {done ? (level === 1 ? '🌸 Đi đầu thai' : `⬆️ Lên tầng ${level - 1}`) : '🙏 Nhận tội'} <kbd>E</kbd>
+              {done ? (level === 1 ? '🌸 Đi đầu thai' : `⬆️ Lên tầng ${level - 1}`) : '🙏 Nhận lỗi'} <kbd>E</kbd>
             </button>
           )}
           <button

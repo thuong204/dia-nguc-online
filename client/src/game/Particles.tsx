@@ -14,12 +14,22 @@ type P = { x: number; y: number; z: number; vx: number; vy: number; vz: number; 
 const BURST: Record<string, [number, number, number]> = {
   gold: [2.5, 1.7, 0.4], blue: [0.4, 1.2, 3], white: [2, 2, 2.2], green: [0.4, 2.6, 0.8],
   smoke: [0.55, 0.5, 0.45],
+  star: [3, 2.6, 0.5], // sao vàng lấp lánh (choáng váng)
+  bubble: [1.2, 2.2, 3], // bong bóng xà phòng
+  pink: [3, 1, 2.2],
+  sweat: [1.4, 2, 3],
+  hair: [0.35, 0.22, 0.12],
 };
 
-/** Máu: giọt đỏ sẫm, không phát sáng, rơi theo trọng lực rồi đọng lại thành vết trên nền. */
+/** Màu confetti tươi */
+const CONFETTI: [number, number, number][] = [
+  [1, 0.25, 0.4], [1, 0.8, 0.15], [0.25, 0.8, 1], [0.45, 1, 0.35], [0.85, 0.4, 1], [1, 0.55, 0.15],
+];
+
+/** Confetti: mảnh giấy màu tung lên, rơi lả tả rồi nằm lại trên nền một lúc (thay cho máu ngày trước). */
 const BMAX = 1500;
-type D = { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; stuck: boolean; s: number };
-function Blood() {
+type D = { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; stuck: boolean; s: number; c: number };
+function Confetti() {
   const pool = useRef<D[]>([]);
   const { geo, pos, col } = useMemo(() => {
     const pos = new Float32Array(BMAX * 3), col = new Float32Array(BMAX * 3);
@@ -33,7 +43,7 @@ function Blood() {
     for (const ev of fx.blood.splice(0)) {
       for (let i = 0; i < 26 && pool.current.length < BMAX; i++) {
         const a = Math.random() * Math.PI * 2, sp = 0.6 + Math.random() * 2.6;
-        pool.current.push({ x: ev.x, y: ev.y, z: ev.z, vx: Math.cos(a) * sp, vy: 0.5 + Math.random() * 3, vz: Math.sin(a) * sp, life: 5 + Math.random() * 3, stuck: false, s: 0.5 + Math.random() * 0.5 });
+        pool.current.push({ x: ev.x, y: ev.y, z: ev.z, vx: Math.cos(a) * sp, vy: 1.5 + Math.random() * 3.5, vz: Math.sin(a) * sp, life: 3 + Math.random() * 2, stuck: false, s: 0.75 + Math.random() * 0.25, c: Math.floor(Math.random() * CONFETTI.length) });
       }
     }
     const arr = pool.current;
@@ -46,8 +56,10 @@ function Blood() {
         continue;
       }
       if (d.stuck) continue;
-      d.vy -= 14 * dt;
-      d.x += d.vx * dt;
+      d.vy = Math.max(d.vy - 9 * dt, -1.6); // rơi lả tả như giấy
+      d.vx *= 1 - dt * 1.5;
+      d.vz *= 1 - dt * 1.5;
+      d.x += d.vx * dt + Math.sin(d.life * 9) * dt * 0.6;
       d.y += d.vy * dt;
       d.z += d.vz * dt;
       if (d.y <= 0.04) {
@@ -60,9 +72,10 @@ function Blood() {
       pos[i * 3] = d.x;
       pos[i * 3 + 1] = d.y;
       pos[i * 3 + 2] = d.z;
-      col[i * 3] = 0.38 * f;
-      col[i * 3 + 1] = 0.01 * f;
-      col[i * 3 + 2] = 0.02 * f;
+      const [r, g, b] = CONFETTI[d.c];
+      col[i * 3] = r * f;
+      col[i * 3 + 1] = g * f;
+      col[i * 3 + 2] = b * f;
     }
     geo.setDrawRange(0, arr.length);
     geo.attributes.position.needsUpdate = true;
@@ -70,7 +83,7 @@ function Blood() {
   });
   return (
     <points geometry={geo} frustumCulled={false}>
-      <pointsMaterial size={0.13} map={dotTexture()} vertexColors transparent depthWrite={false} sizeAttenuation alphaTest={0.05} />
+      <pointsMaterial size={0.17} map={dotTexture()} vertexColors transparent depthWrite={false} sizeAttenuation alphaTest={0.05} />
     </points>
   );
 }
@@ -116,7 +129,7 @@ export function Particles() {
 
     // sự kiện
     for (const ev of fx.queue.splice(0)) {
-      if (ev.kind === 'burst' && ev.c === 'blood') {
+      if (ev.kind === 'burst' && (ev.c === 'confetti' || ev.c === 'blood')) {
         fx.blood.push({ x: ev.x ?? 0, y: ev.y ?? 1, z: ev.z ?? 0 });
       } else if (ev.kind === 'burst') {
         const [r, g, b] = BURST[ev.c ?? 'gold'] ?? BURST.gold;
@@ -159,7 +172,7 @@ export function Particles() {
 
   return (
     <>
-    <Blood />
+    <Confetti />
     <points ref={pts} geometry={geo} frustumCulled={false}>
       <pointsMaterial size={0.32} map={dotTexture()} vertexColors transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} sizeAttenuation />
     </points>

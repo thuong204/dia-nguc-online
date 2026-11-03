@@ -10,16 +10,16 @@ export function announceFeed(it: FeedItem) {
     case 'judge':
       if (it.who === me || !f) return; // chính mình vừa nghe Diêm Vương phán rồi
       sfx.chain();
-      announce(`${it.name} bị đày xuống Tầng ${f.level}, ${f.name}, vì tội ${f.sin.toLowerCase()}.`);
+      announce(`Tin nóng! ${it.name} được mời xuống Tầng ${f.level}, ${f.name}, vì tội ${f.sin.toLowerCase()}.`);
       break;
     case 'pardon':
       if (!f) return; // xong tầng 1 → đọc ở tin đầu thai
       sfx.bell();
-      announce(`${it.name} chịu đủ hình phạt, bị giải lên Tầng ${f.level}.`);
+      announce(`${it.name} chịu phạt xong rồi, lon ton lên Tầng ${f.level}.`);
       break;
     case 'reborn':
       sfx.pardon();
-      announce(`${it.name} đã qua cầu Nại Hà, uống canh Mạnh Bà, đầu thai thành ${it.as ?? 'người mới'}.`, 'manh');
+      announce(`${it.name} đã qua cầu Nại Hà, uống canh Mạnh Bà vị trà sữa, đầu thai thành ${it.as ?? 'người mới'}.`, 'manh');
       break;
   }
 }

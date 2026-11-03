@@ -130,28 +130,28 @@ export class HallRoom extends Room<{ state: HallState }> {
     this.state.turn = id;
     const chosen: Opt[] = [];
 
-    await this.say(id, 'hac', pick([`Áp giải hồn ${name} lên trước án!`, `Hồn ${name}! Đứng dậy, lên quỳ trước Đại Vương!`, `Tới lượt ngươi, ${name}. Đi!`]));
-    await this.say(id, 'phan', `Bẩm Đại Vương, theo Sổ Sinh Tử: hồn ${name}, dương thọ ${age} tuổi, ${sc.death}.`);
+    await this.say(id, 'hac', pick([`Mời hồn ${name} lên trước án! Nhanh nhanh, Đại Vương sắp tới giờ ăn trưa!`, `Hồn ${name}! Đứng dậy, cất điện thoại, lên quỳ trước Đại Vương!`, `Tới lượt ngươi rồi, ${name}. Đi đứng cho đàng hoàng nha!`]));
+    await this.say(id, 'phan', `Bẩm Đại Vương, theo Sổ Sinh Tử: hồn ${name}, dương thọ ${age} tuổi, lên đây vì ${sc.death}.`);
 
     const answerLine = async (a: { o: Opt; silent: boolean }) => {
       chosen.push(a.o);
-      if (a.silent) await this.say(id, 'bach', pick(['Hi hi… im lặng à? Để Gương Nghiệt nói thay ngươi!', 'Không chịu khai? Sổ Sinh Tử đã ghi cả rồi.']));
+      if (a.silent) await this.say(id, 'bach', pick(['Hi hi… im re à? Để Gương Nghiệt kể thay ngươi nha!', 'Không chịu khai? Sổ Sinh Tử chụp màn hình hết rồi đó.']));
       await this.say(id, 'me', a.o.t, name);
     };
 
     // 1. hỏi về cái chết — có oan không?
     await answerLine(await this.ask(id, sc.ask.who, sc.ask.q, sc.ask.opts));
     const last = chosen[chosen.length - 1];
-    if (last.self) await this.say(id, 'diem', 'Thân người khó được, cha mẹ ban cho, sao lại tự vứt bỏ! Tội này không nhẹ.');
-    else if (last.oan) await this.say(id, 'diem', 'Oan có đầu, nợ có chủ. Kẻ hại ngươi rồi sẽ có ngày quỳ ở đây. Ta sẽ xét nhẹ cho ngươi.');
-    else if (last.nghia) await this.say(id, 'diem', 'Chết vì việc nghĩa, ta ghi nhận. Công này sẽ trừ bớt tội cho ngươi.');
-    else if (last.floor) await this.say(id, pick(['diem', 'phan'] as Who[]), pick(['Hừm… tự chuốc lấy họa. Phán Quan, chép lại!', 'Gieo gió thì gặt bão. Ghi vào sổ!']));
+    if (last.self) await this.say(id, 'diem', 'Thân thể cha mẹ cho mà không chịu ngủ, không chịu ăn! Ta phạt ngươi đi ngủ bù… à nhầm, xuống tầng!');
+    else if (last.oan) await this.say(id, 'diem', 'Oan quá ta cũng thấy oan. Kẻ hại ngươi rồi sẽ có ngày quỳ ở đây. Ta xét nhẹ cho ngươi!');
+    else if (last.nghia) await this.say(id, 'diem', 'Tốt bụng ghê! Ta ghi nhận, cộng điểm tốt, trừ bớt tội cho ngươi.');
+    else if (last.floor) await this.say(id, pick(['diem', 'phan'] as Who[]), pick(['Hừm… tự hại mình đó nha. Phán Quan, chép lại!', 'Gieo gió thì gặt bão… bão cười. Ghi vào sổ!']));
 
     // 2. hỏi tội
     for (const a of asks) {
       await answerLine(await this.ask(id, a.who, a.q, a.opts));
       const o = chosen[chosen.length - 1];
-      if (o.floor) await this.say(id, pick(['diem', 'phan', 'hac'] as Who[]), pick(['Tội này không nhẹ! Chép vào sổ!', 'Hạ quan đã ghi lại từng chữ.', 'Hê… lại thêm một tội.']));
+      if (o.floor) await this.say(id, pick(['diem', 'phan', 'hac'] as Who[]), pick(['Trời đất! Chép vào sổ, gạch chân hai lần!', 'Hạ quan đã ghi lại từng chữ, cả dấu chấm than.', 'Hê hê… lại thêm một tội, sổ sắp hết trang rồi.']));
     }
 
     // 3. Gương Nghiệt soi kẻ chối tội
@@ -159,23 +159,23 @@ export class HallRoom extends Room<{ state: HallState }> {
     const denied = chosen.filter((o) => o.deny).length;
     if (denied && Math.random() < 0.35 + denied * 0.2) {
       revealed = pick(sc.hidden);
-      await this.say(id, 'phan', 'Khoan! Gương Nghiệt đang sáng lên…');
-      await this.say(id, 'diem', `Ngươi chối ư? Gương Nghiệt soi rõ: ngươi từng ${FLOORS[revealed - 1].sin.toLowerCase()}! Khai gian trước điện, tội càng thêm nặng!`);
+      await this.say(id, 'phan', 'Khoan! Gương Nghiệt đang sáng lên… đang tải… 99%…');
+      await this.say(id, 'diem', `Chối hả? Gương Nghiệt có hình rõ nét Full HD: ngươi từng ${FLOORS[revealed - 1].sin.toLowerCase()}! Khai gian là bị cộng thêm tội nha!`);
     } else if (denied === chosen.length) {
-      await this.say(id, 'diem', 'Gương Nghiệt không soi ra tội lớn. Nhưng làm người, ai mà không có lỗi.');
+      await this.say(id, 'diem', 'Gương Nghiệt soi mãi chẳng thấy tội lớn. Nhưng làm người, ai mà chẳng có lúc lầy.');
     }
 
     // 4. phán
     const s = sentence(chosen, sc, revealed);
     const f = FLOORS[s.level - 1];
-    await this.say(id, 'phan', 'Bẩm Đại Vương, Sổ Sinh Tử đã đối chiếu xong.');
-    await this.say(id, 'diem', `Phán! Hồn ${name} phạm tội: ${f.sin.toLowerCase()}${s.lighter ? ', nhưng xét có tình tiết được giảm nhẹ' : ''}. Đày xuống Tầng ${s.level}, ${f.name}!`);
+    await this.say(id, 'phan', 'Bẩm Đại Vương, Sổ Sinh Tử đã đối chiếu xong, máy in đang in phiếu phạt.');
+    await this.say(id, 'diem', `Phán! Hồn ${name} phạm tội: ${f.sin.toLowerCase()}${s.lighter ? ', nhưng xét thấy cũng dễ thương nên giảm nhẹ' : ''}. Mời xuống Tầng ${s.level}, ${f.name}! Cộc cộc!`);
     soul.state = 'done';
     const client = this.clients.find((c) => c.sessionId === id);
     const soulId = this.ids.get(id) ?? randomUUID();
     const ticket = issueTicket({ id: soulId, name, sin: chosen.map((o) => o.t).join('. '), hue: soul.hue, level: s.level });
     addFeed({ kind: 'judge', name, level: s.level, who: soulId, text: `bị đày xuống tầng ${s.level} (${floorName(s.level)}) — ${sc.death}` });
     client?.send('sentenced', { id: soulId, level: s.level, ticket, hue: soul.hue });
-    await this.say(id, 'hac', `Đi! Ngưu Đầu, Mã Diện đang chờ ở cổng Tầng ${s.level}.`).catch(() => {});
+    await this.say(id, 'hac', `Đi nào! Ngưu Đầu, Mã Diện đang cầm biển đón ở cổng Tầng ${s.level}.`).catch(() => {});
   }
 }

@@ -206,7 +206,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     p.z = EXEC_SPOTS[0].z + 2.6;
     const level = this.state.level;
     client.send('served', { next: level - 1 });
-    this.broadcast('chat', { id: client.sessionId, text: 'Chịu xong rồi… 😮‍💨' }, { except: client });
+    this.broadcast('chat', { id: client.sessionId, text: 'Xong rồi! Hú hồn chim én 😮‍💨' }, { except: client });
   }
 
   /** Hồn đồng ý đi tiếp: lên tầng trên, hoặc đầu thai nếu đang ở tầng 1. */
@@ -218,13 +218,13 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     const soul = client.auth as Soul;
     notePardon(soul, level, level === 1);
     if (level === 1) {
-      addFeed({ kind: 'pardon', name: soul.name, level: 0, who: soul.id, text: 'chịu xong hình phạt tầng cuối, qua cầu Nại Hà đi đầu thai!' });
+      addFeed({ kind: 'pardon', name: soul.name, level: 0, who: soul.id, text: 'chịu phạt xong tầng cuối, tung tăng qua cầu Nại Hà đi đầu thai! 🎉' });
       const as = REBIRTHS[Math.floor(Math.random() * REBIRTHS.length)];
       client.send('reborn', { as });
-      addFeed({ kind: 'reborn', name: soul.name, as, who: soul.id, text: `đã đầu thai thành ${as}` });
+      addFeed({ kind: 'reborn', name: soul.name, as, who: soul.id, text: `đã đầu thai thành ${as} 🐣` });
       return;
     }
-    addFeed({ kind: 'pardon', name: soul.name, level: level - 1, who: soul.id, text: `chịu đủ hình phạt, bị giải lên tầng ${level - 1}` });
+    addFeed({ kind: 'pardon', name: soul.name, level: level - 1, who: soul.id, text: `chịu phạt xong, lon ton lên tầng ${level - 1}` });
     const ticket = issueTicket({ ...soul, level: level - 1 });
     client.send('pardoned', { level: level - 1, ticket });
   }

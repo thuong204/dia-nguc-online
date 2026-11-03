@@ -1,10 +1,9 @@
-import { Suspense, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Suspense } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { KeyboardControls } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
-import { Bloom, ChromaticAberration, EffectComposer, Noise, ToneMapping, Vignette } from '@react-three/postprocessing';
-import { BlendFunction, ToneMappingMode, type ChromaticAberrationEffect, type NoiseEffect } from 'postprocessing';
-import * as THREE from 'three';
+import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
 import { useGame } from '../store.ts';
 import { Player, type Controls } from './Player.tsx';
 import { Others } from './Others.tsx';
@@ -21,27 +20,6 @@ const keyMap: { name: Controls; keys: string[] }[] = [
   { name: 'jump', keys: ['Space'] },
 ];
 
-/** Hạt nhiễu phim luôn có (cho cảm giác thước phim cũ); khi chính mình chịu hình thì nhoè màu, nhiễu dày. */
-function PainFx() {
-  const chroma = useRef<ChromaticAberrationEffect>(null);
-  const noise = useRef<NoiseEffect>(null);
-  const amt = useRef(0);
-  useFrame((_, dt) => {
-    const target = useGame.getState().pain ? 1 : 0;
-    amt.current += (target - amt.current) * Math.min(1, dt * 4);
-    const a = amt.current;
-    const j = a * (0.001 + Math.random() * 0.002);
-    chroma.current?.offset.set(j, j * 0.6);
-    if (noise.current) noise.current.blendMode.opacity.value = 0.07 + a * 0.18;
-  });
-  return (
-    <>
-      <ChromaticAberration ref={chroma} offset={new THREE.Vector2(0, 0)} radialModulation={false} modulationOffset={0} />
-      <Noise ref={noise} premultiply blendFunction={BlendFunction.OVERLAY} />
-    </>
-  );
-}
-
 export default function Game() {
   const level = useGame((s) => s.level);
   const roomKey = useGame((s) => s.roomKey);
@@ -55,13 +33,14 @@ export default function Game() {
         <color attach="background" args={[look.fog]} />
         <fogExp2 attach="fog" args={[look.fog, look.density]} />
         {/* ánh sáng nhuốm màu riêng của từng tầng */}
-        <hemisphereLight args={[look.crack, look.fog, 0.75]} />
-        <ambientLight intensity={0.15} />
+        {/* phiên bản hài: trời sáng sủa như công viên */}
+        <hemisphereLight args={[look.crack, look.fog, 1.3]} />
+        <ambientLight intensity={0.55} />
         <directionalLight
           castShadow
           position={[12, 24, 10]}
-          intensity={1.1}
-          color={look.crack}
+          intensity={1.8}
+          color="#fff4e0"
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-32}
           shadow-camera-right={32}
@@ -77,9 +56,8 @@ export default function Game() {
         <Others key={'o' + roomKey} />
         <Particles />
         <EffectComposer>
-          <Bloom mipmapBlur luminanceThreshold={0.9} intensity={0.9} />
-          <Vignette offset={0.25} darkness={0.75} />
-          <PainFx />
+          <Bloom mipmapBlur luminanceThreshold={0.95} intensity={0.6} />
+          <Vignette offset={0.35} darkness={0.3} />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
       </Canvas>

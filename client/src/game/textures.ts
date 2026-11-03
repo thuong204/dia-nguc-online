@@ -6,26 +6,27 @@ export function seeded(seed: number) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-// [sương mù, dung nham/biển, vết nứt phát sáng, màu nền đá, mật độ sương]
+// [sương mù / màu trời, dung nham/biển, vết nứt phát sáng, màu nền đá, mật độ sương]
+// Phiên bản hài: màu kẹo ngọt, trời sáng, sương mỏng — địa ngục như công viên giải trí.
 const PALETTES: [string, string, string, string, number][] = [
-  ['#2a0608', '#c01020', '#ff3a3a', '#b08080', 0.022], // 1 Rút Lưỡi
-  ['#0c1218', '#3a80ff', '#8ab8ff', '#8090a0', 0.022], // 2 Cắt Kéo
-  ['#0c120c', '#4a9a2a', '#9aff6a', '#8a9a8a', 0.026], // 3 Cây Sắt
-  ['#140a24', '#8a4aff', '#c08aff', '#a098c0', 0.02], // 4 Gương Nghiệt
-  ['#2a2018', '#ff9a3a', '#ffc07a', '#c0a888', 0.034], // 5 Lồng Hấp
-  ['#2a1006', '#ff6a10', '#ff9a3a', '#b08868', 0.022], // 6 Cột Đồng
-  ['#1a0c10', '#ff2a4a', '#ff6a7a', '#9a8a90', 0.018], // 7 Núi Đao
-  ['#20384a', '#6ad8ff', '#bff4ff', '#e0f0ff', 0.024], // 8 Núi Băng
-  ['#2a1a04', '#ffb020', '#ffd060', '#b09a70', 0.022], // 9 Vạc Dầu
-  ['#24140a', '#d0601a', '#ff8a3a', '#a08060', 0.022], // 10 Trâu Húc
-  ['#161616', '#a03a2a', '#c07a5a', '#a0a0a0', 0.022], // 11 Đá Đè
-  ['#241a08', '#e0901a', '#ffc04a', '#c0a878', 0.022], // 12 Cối Giã
-  ['#2a0204', '#a00010', '#ff2030', '#9a7070', 0.024], // 13 Ao Máu
-  ['#101418', '#4a6a8a', '#8ab0d0', '#8a9098', 0.04], // 14 Uổng Tử
-  ['#0e1a0a', '#6aa020', '#b0ff5a', '#8a9a80', 0.026], // 15 Phanh Thây
-  ['#200800', '#ff3a00', '#ff7a1a', '#806a60', 0.02], // 16 Núi Lửa
-  ['#1a120c', '#ff7a1a', '#ff8a2a', '#ffffff', 0.022], // 17 Cối Xay Đá
-  ['#1a0e06', '#c0501a', '#ff8a3a', '#a08870', 0.022], // 18 Cưa Xẻ
+  ['#6a3a8a', '#ff5a9a', '#ffb0e0', '#e8c8f0', 0.012], // 1 Lưỡi Lò Xo
+  ['#2f5a8a', '#4ab0ff', '#b0e4ff', '#d0e4f4', 0.012], // 2 Tiệm Cắt Tóc
+  ['#3a7a5a', '#6aff9a', '#d0ffb0', '#d8f0d0', 0.013], // 3 Lông Gà Cù
+  ['#5a3a9a', '#b07aff', '#e8c0ff', '#e0d4f8', 0.012], // 4 Gương Ảnh Thẻ
+  ['#8a5a3a', '#ffc06a', '#ffe8b0', '#f8e4c8', 0.016], // 5 Bánh Bao
+  ['#3a3a7a', '#ffe04a', '#fff4a0', '#d8d8f0', 0.012], // 6 Cột Điện
+  ['#7a3a5a', '#ff4a6a', '#ffb0c0', '#f0d0dc', 0.011], // 7 Thảm Lego
+  ['#4a8ab0', '#8ae8ff', '#e8fcff', '#f4fcff', 0.012], // 8 Kem Que
+  ['#9a6a2a', '#ffc040', '#fff0a0', '#f8e8c0', 0.012], // 9 Gà Rán
+  ['#5a8a3a', '#a8e05a', '#f0ffb0', '#e4f0c8', 0.012], // 10 Bò Húc
+  ['#6a5a8a', '#c0a0ff', '#f0e4ff', '#e8e4f4', 0.012], // 11 Gối Ôm Khổng Lồ
+  ['#8a3a3a', '#ff7a3a', '#ffd0a0', '#f8dcc8', 0.012], // 12 Búa Hơi
+  ['#8a6a2a', '#e0a030', '#ffe090', '#f0e0c0', 0.013], // 13 Ao Nước Mắm
+  ['#3a6a7a', '#6ad0e0', '#c8f4ff', '#dcecf0', 0.016], // 14 Phòng Chờ
+  ['#8a4a7a', '#ff8ad0', '#ffd4f0', '#f8dcf0', 0.012], // 15 Kéo Kẹo
+  ['#9a3a2a', '#ff5a20', '#ffc080', '#f8d8c8', 0.012], // 16 Mì Cay
+  ['#3a5a9a', '#5ac8ff', '#c8ecff', '#ffffff', 0.012], // 17 Máy Giặt
+  ['#6a3a8a', '#ff9a3a', '#ffe0a0', '#f0dcf0', 0.012], // 18 Ảo Thuật Cưa Hộp
 ];
 
 /** Màu sắc riêng từng tầng. */
@@ -72,14 +73,14 @@ export function lavaTexture() {
   c.width = c.height = 256;
   const g = c.getContext('2d')!;
   const r = seeded(42);
-  g.fillStyle = '#3a0500';
+  g.fillStyle = '#5a5a5a';
   g.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 90; i++) {
     const x = r() * 256, y = r() * 256, rad = 8 + r() * 34;
     for (const [dx, dy] of [[0, 0], [256, 0], [-256, 0], [0, 256], [0, -256]]) {
       const grd = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad);
-      grd.addColorStop(0, `rgba(255,${180 + r() * 60},80,${0.5 + r() * 0.5})`);
-      grd.addColorStop(1, 'rgba(255,60,0,0)');
+      grd.addColorStop(0, `rgba(255,255,255,${0.5 + r() * 0.5})`); // bọt ga trắng
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = grd;
       g.fillRect(x + dx - rad, y + dy - rad, rad * 2, rad * 2);
     }
@@ -98,18 +99,19 @@ export function groundTextures(level: number) {
   base.width = W;
   base.height = H;
   const b = base.getContext('2d')!;
-  b.fillStyle = '#2b1915';
+  b.fillStyle = '#9a90a0';
   b.fillRect(0, 0, W, H);
-  // đá lát
+  // gạch lát kẻ ô như sàn sân chơi
   for (let y = 0; y < H; y += 54) {
     for (let x = (y / 54) % 2 ? -27 : 0; x < W; x += 54) {
-      const l = 14 + r() * 10;
-      b.fillStyle = `hsl(10, 22%, ${l}%)`;
+      const checker = (Math.floor(x / 54) + Math.floor(y / 54)) % 2;
+      const l = (checker ? 62 : 74) + r() * 6;
+      b.fillStyle = `hsl(${(level * 37) % 360}, 18%, ${l}%)`;
       b.fillRect(x + 2, y + 2, 50, 50);
     }
   }
-  for (let i = 0; i < 4000; i++) {
-    b.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.25)' : 'rgba(255,220,200,0.05)';
+  for (let i = 0; i < 1500; i++) {
+    b.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.12)';
     b.fillRect(r() * W, r() * H, 2 + r() * 3, 2 + r() * 3);
   }
 
@@ -123,7 +125,7 @@ export function groundTextures(level: number) {
   // vòng pháp trận quanh cối xay (tâm cối ở x=0,z=-2 → pixel)
   const cx = W / 2, cy = H / 2 - 2 * 20;
   for (const ctx of [b, e]) {
-    ctx.strokeStyle = ctx === b ? 'rgba(0,0,0,0.5)' : 'rgba(255,120,40,0.55)';
+    ctx.strokeStyle = ctx === b ? 'rgba(255,255,255,0.5)' : 'rgba(255,200,120,0.4)';
     ctx.lineWidth = 4;
     for (const rad of [120, 150]) {
       ctx.beginPath();
@@ -160,12 +162,13 @@ export function groundTextures(level: number) {
     ctx.stroke();
   };
   b.lineCap = e.lineCap = 'round';
-  b.strokeStyle = 'rgba(10,3,2,0.9)';
-  b.lineWidth = 7;
-  e.strokeStyle = 'rgba(255,140,60,1)';
-  e.lineWidth = 3.5;
-  e.shadowColor = '#ff6a00';
-  e.shadowBlur = 16;
+  // vết nứt thành những vệt sơn kẹo uốn lượn
+  b.strokeStyle = 'rgba(255,255,255,0.55)';
+  b.lineWidth = 6;
+  e.strokeStyle = 'rgba(255,230,180,0.8)';
+  e.lineWidth = 3;
+  e.shadowColor = '#ffffff';
+  e.shadowBlur = 10;
   for (let i = 0; i < 16 + level; i++) {
     const x = r() * W, y = r() * H, s = Math.floor(r() * 1e9);
     crackWith(b, seeded(s), x, y, 0);
@@ -187,8 +190,8 @@ export function drawSign(canvas: HTMLCanvasElement, level: number) {
   const W = (canvas.width = 1024), H = (canvas.height = 300);
   const g = canvas.getContext('2d')!;
   const grd = g.createLinearGradient(0, 0, 0, H);
-  grd.addColorStop(0, '#8a1010');
-  grd.addColorStop(1, '#4a0606');
+  grd.addColorStop(0, '#ff6a9a'); // bảng hiệu kẹo hồng như cổng công viên
+  grd.addColorStop(1, '#a03aff');
   g.fillStyle = grd;
   g.fillRect(0, 0, W, H);
   g.strokeStyle = '#f5c04a';

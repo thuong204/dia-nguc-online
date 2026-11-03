@@ -17,7 +17,9 @@ import { textTexture } from './textures.ts';
 type SceneProps = { level: number; look: Look };
 const glow = (r: number, g: number, b: number) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
 const steel = new THREE.MeshStandardMaterial({ color: '#c8d0d8', metalness: 0.95, roughness: 0.2 });
-const iron = new THREE.MeshStandardMaterial({ color: '#2a2c30', metalness: 0.8, roughness: 0.45 });
+// gai kẹo (núi đao thành núi kẹo nhọn — chạm vẫn bị trừ điểm nhưng trông như đồ chơi)
+const candySpikes = ['#ff7ac0', '#7ad0ff', '#ffd04a', '#8aff7a'].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.3 }));
+const iron = new THREE.MeshStandardMaterial({ color: '#8a90a8', metalness: 0.5, roughness: 0.4 });
 const copperHot = new THREE.MeshStandardMaterial({ color: '#b0602a', metalness: 0.7, roughness: 0.35, emissive: '#ff3a00' });
 const ice = new THREE.MeshStandardMaterial({ color: '#bfefff', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.75, emissive: '#2a8aff', emissiveIntensity: 0.35 });
 const paper = new THREE.MeshStandardMaterial({ color: '#c8a050', roughness: 0.9 });
@@ -528,7 +530,7 @@ function Floor7({ level, look }: SceneProps) {
       <Ground level={level} look={look} />
       <mesh material={darkStone} position={[0, 4.2, -8]} castShadow><coneGeometry args={[2.6, 8.4, 10]} /></mesh>
       {spikes.map((s, i) => (
-        <mesh key={i} geometry={bladeGeo} material={steel} position={[s.x, s.y, s.z]} rotation={[Math.sin(s.a) * 0.9, 0, -Math.cos(s.a) * 0.9]} scale={1.4} />
+        <mesh key={i} geometry={bladeGeo} material={candySpikes[i % 4]} position={[s.x, s.y, s.z]} rotation={[Math.sin(s.a) * 0.9, 0, -Math.cos(s.a) * 0.9]} scale={1.4} />
       ))}
       <RigidBody type="fixed" colliders={false}>
         {BLADE_STEPS.map((st, i) => <CuboidCollider key={i} args={[st.s / 2, 0.25, st.s / 2]} position={[st.x, st.y - 0.25, st.z]} />)}
@@ -717,10 +719,10 @@ function Floor12({ level, look }: SceneProps) {
   );
 }
 
-/* ================= Tầng 13 — Ao Máu ================= */
+/* ================= Tầng 13 — Ao Nước Mắm ================= */
 function Floor13({ level, look }: SceneProps) {
   const c = floorDef(13).collect!;
-  const built = BRIDGE_PLANKS; // cầu bắc sẵn qua bể máu
+  const built = BRIDGE_PLANKS; // cầu bắc sẵn qua ao nước mắm
   const W = 27, D = 19;
   const pieces = useMemo(
     () => [
@@ -734,14 +736,14 @@ function Floor13({ level, look }: SceneProps) {
   const plankD = (POND.z1 - POND.z0) / BRIDGE_PLANKS;
   const blood = useRef<THREE.MeshStandardMaterial>(null);
   useFrame(({ clock }) => {
-    if (blood.current) blood.current.emissiveIntensity = 0.9 + Math.sin(clock.elapsedTime) * 0.25;
+    if (blood.current) blood.current.emissiveIntensity = 0.5 + Math.sin(clock.elapsedTime) * 0.15;
   });
   return (
     <>
       <Ground level={level} look={look} pieces={pieces} />
       <mesh rotation-x={-Math.PI / 2} position={[(POND.x0 + POND.x1) / 2, -0.7, (POND.z0 + POND.z1) / 2]}>
         <planeGeometry args={[POND.x1 - POND.x0, POND.z1 - POND.z0]} />
-        <meshStandardMaterial ref={blood} color="#3a0004" emissive="#a00010" roughness={0.15} metalness={0.3} />
+        <meshStandardMaterial ref={blood} color="#c07a1a" emissive="#6a3a00" roughness={0.1} metalness={0.2} />
       </mesh>
       <RigidBody type="fixed" colliders={false} key={built}>
         {Array.from({ length: built }, (_, i) => (
@@ -847,7 +849,7 @@ function Floor15({ level, look }: SceneProps) {
       <Ground level={level} look={look} />
       {c.targets.map((t, i) => <Tomb key={i} x={t.x} z={t.z} color={TOMB_COLORS[i]} />)}
       {holes.map((h, i) => (
-        <mesh key={i} rotation-x={-Math.PI / 2} position={[h.x, 0.04, h.z]}><circleGeometry args={[1, 16]} /><meshBasicMaterial color="#050805" /></mesh>
+        <mesh key={i} rotation-x={-Math.PI / 2} position={[h.x, 0.04, h.z]}><circleGeometry args={[1, 16]} /><meshBasicMaterial color="#3a2a4a" /></mesh>
       ))}
       <Items level={15} />
     </>
@@ -867,7 +869,7 @@ function Floor16({ level, look }: SceneProps) {
         <mesh material={darkStone}><coneGeometry args={[22, 26, 16, 1, true]} /></mesh>
         <mesh position-y={12.5} rotation-x={-Math.PI / 2}><circleGeometry args={[5, 24]} /><meshBasicMaterial ref={crater} toneMapped={false} /></mesh>
       </group>
-      <pointLight color="#ff4a00" intensity={200} distance={70} decay={1.5} position={[0, 14, -30]} />
+      <pointLight color="#ffb04a" intensity={160} distance={70} decay={1.5} position={[0, 14, -30]} />
       <SafeZoneMark />
       <Zones level={16} />
     </>

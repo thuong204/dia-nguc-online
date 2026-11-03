@@ -8,35 +8,39 @@ import { EXEC_SPOTS, EXEC_WAIT, EXEC_ZONE, FLOORS, HEADSMAN } from '../../../sha
 import { players } from '../net.ts';
 import { Torch, wood, type Look } from './World.tsx';
 
-const edgeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 0.15, 0.05), toneMapped: false });
-const skinMat = new THREE.MeshStandardMaterial({ color: '#7a3a26', roughness: 0.6 });
-const robeMat = new THREE.MeshStandardMaterial({ color: '#6a0a08', roughness: 0.8 });
-const sashMat = new THREE.MeshStandardMaterial({ color: '#1a0a08', roughness: 0.9 });
-const bladeMat = new THREE.MeshStandardMaterial({ color: '#d8dee6', metalness: 1, roughness: 0.15 });
-const ironMat = new THREE.MeshStandardMaterial({ color: '#2a2c30', metalness: 0.8, roughness: 0.45 });
-const eyeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.5, 0.1), toneMapped: false });
+const edgeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.8, 0.4), toneMapped: false }); // viền sân khấu vàng
+const skinMat = new THREE.MeshStandardMaterial({ color: '#f0b890', roughness: 0.6 });
+const robeMat = new THREE.MeshStandardMaterial({ color: '#ff5aa0', roughness: 0.7 }); // áo hồng chấm bi kiểu chú hề
+const sashMat = new THREE.MeshStandardMaterial({ color: '#3a8aff', roughness: 0.8 });
+const toyRed = new THREE.MeshStandardMaterial({ color: '#ff3a4a', roughness: 0.35 });
+const toyYellow = new THREE.MeshStandardMaterial({ color: '#ffd02a', roughness: 0.4 });
+const dusterMat = new THREE.MeshStandardMaterial({ color: '#ff9ad8', roughness: 0.95 });
+const ironMat = new THREE.MeshStandardMaterial({ color: '#a8b0c0', metalness: 0.5, roughness: 0.35 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: '#111111' });
+const noseMat = new THREE.MeshStandardMaterial({ color: '#ff2a2a', roughness: 0.3 });
 
-/** Vũ khí đao phủ đổi theo tầng: đại đao / búa rìu / roi sắt */
+/** "Vũ khí" đao phủ đổi theo tầng: búa hơi đồ chơi / chổi lông gà / cá cao su */
 function Weapon({ level }: { level: number }) {
   const k = level % 3;
   if (k === 1)
     return (
       <group position-y={-0.9}>
-        <mesh material={wood}><cylinderGeometry args={[0.05, 0.05, 1.6, 8]} /></mesh>
-        <mesh material={bladeMat} position={[0.25, -0.75, 0]}><boxGeometry args={[0.55, 0.45, 0.06]} /></mesh>
+        <mesh material={toyYellow}><cylinderGeometry args={[0.05, 0.05, 1.6, 8]} /></mesh>
+        <mesh material={toyRed} position={[0, -0.85, 0]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.25, 0.25, 0.65, 14]} /></mesh>
       </group>
     );
   if (k === 2)
     return (
       <group position-y={-0.9}>
-        <mesh material={ironMat}><cylinderGeometry args={[0.04, 0.06, 1.9, 8]} /></mesh>
-        {[0, 1, 2, 3].map((i) => <mesh key={i} material={ironMat} position-y={-0.3 - i * 0.35}><torusGeometry args={[0.07, 0.025, 6, 12]} /></mesh>)}
+        <mesh material={wood}><cylinderGeometry args={[0.04, 0.05, 1.4, 8]} /></mesh>
+        <mesh material={dusterMat} position-y={-0.85} scale={[1, 1.4, 1]}><sphereGeometry args={[0.28, 10, 8]} /></mesh>
       </group>
     );
   return (
     <group position-y={-0.9}>
-      <mesh material={wood} position-y={0.35}><cylinderGeometry args={[0.05, 0.05, 0.7, 8]} /></mesh>
-      <mesh material={bladeMat} position={[0.08, -0.55, 0]}><boxGeometry args={[0.3, 1.5, 0.05]} /></mesh>
+      <mesh material={toyYellow} position={[0, -0.35, 0]} scale={[0.35, 1, 0.15]}><sphereGeometry args={[0.55, 12, 8]} /></mesh>
+      <mesh material={toyYellow} position={[0, -0.95, 0]} rotation-z={Math.PI}><coneGeometry args={[0.2, 0.3, 4]} /></mesh>
+      {[-0.06, 0.06].map((x) => <mesh key={x} material={eyeMat} position={[x, -0.05, 0.08]}><sphereGeometry args={[0.03, 6, 4]} /></mesh>)}
     </group>
   );
 }
@@ -71,7 +75,8 @@ function Headsman({ level }: { level: number }) {
         <group position-y={1.98}>
           <mesh material={skinMat} castShadow><sphereGeometry args={[0.24, 16, 12]} /></mesh>
           <mesh material={robeMat} position-y={0.05} rotation-x={Math.PI / 2}><torusGeometry args={[0.235, 0.04, 6, 20]} /></mesh>
-          {[-0.08, 0.08].map((x) => <mesh key={x} material={eyeMat} position={[x, 0, 0.21]}><sphereGeometry args={[0.03, 6, 4]} /></mesh>)}
+          {[-0.08, 0.08].map((x) => <mesh key={x} material={eyeMat} position={[x, 0.04, 0.21]}><sphereGeometry args={[0.035, 6, 4]} /></mesh>)}
+          <mesh material={noseMat} position={[0, -0.03, 0.24]}><sphereGeometry args={[0.07, 10, 8]} /></mesh>
         </group>
         <mesh material={skinMat} position={[-0.46, 1.3, 0]} rotation-z={0.25}><cylinderGeometry args={[0.09, 0.08, 0.7, 8]} /></mesh>
         <group ref={arm} position={[0.46, 1.6, 0]}>
@@ -80,7 +85,7 @@ function Headsman({ level }: { level: number }) {
         </group>
       </group>
       <Html position={[0, 3.3, 0]} center pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="tag">🪓 Đao phủ</div>
+        <div className="tag">🤡 Đao phủ (tập sự)</div>
       </Html>
     </group>
   );
@@ -102,7 +107,7 @@ function Status({ level }: { level: number }) {
   const f = FLOORS[level - 1];
   return (
     <div className="spot-tag exec-tag">
-      ⚔️ PHÁP TRƯỜNG · {f.name.replace(' Địa Ngục', '')}
+      🎪 SÂN KHẤU HÌNH PHẠT · {f.name.replace(' Địa Ngục', '')}
       <small>Bấm E nhận tội — quỷ sai sẽ áp giải tới đây</small>
     </div>
   );
@@ -112,14 +117,14 @@ export function ExecGround({ level, look }: { level: number; look: Look }) {
   const W = EXEC_ZONE.x1 - EXEC_ZONE.x0, D = EXEC_ZONE.z1 - EXEC_ZONE.z0;
   const cz = (EXEC_ZONE.z0 + EXEC_ZONE.z1) / 2;
   // nền Pháp Trường nhuốm màu của tầng
-  const slabMat = useMemo(() => new THREE.MeshStandardMaterial({ color: new THREE.Color(look.lava).multiplyScalar(0.25), roughness: 0.9 }), [look.lava]);
+  const slabMat = useMemo(() => new THREE.MeshStandardMaterial({ color: new THREE.Color(look.lava).multiplyScalar(0.7), roughness: 0.7 }), [look.lava]);
   const ring = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(look.crack), toneMapped: false }), [look.crack]);
   const base = useMemo(() => new THREE.Color(look.crack).multiplyScalar(0.6), [look.crack]);
   const waitMat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(look.crack).multiplyScalar(0.35), toneMapped: false }), [look.crack]);
   useFrame(({ clock }) => {
     const taken = [...players.values()].some((p) => p.slot === 0);
     const pulse = 1 + Math.sin(clock.elapsedTime * 6) * 0.35;
-    if (taken) ring.color.setRGB(3 * pulse, 0.15, 0.05);
+    if (taken) ring.color.setRGB(2.6 * pulse, 1.4 * pulse, 2.4 * pulse);
     else ring.color.copy(base);
   });
   const s = EXEC_SPOTS[0];

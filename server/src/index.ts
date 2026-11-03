@@ -25,7 +25,7 @@ const gameServer = new Server({
     // Diêm Vương phán tội → cấp vé xuống đúng tầng
     app.post('/api/judge', (req, res) => {
       const name = clean(req.body?.name, 18) || 'Hồn Vô Danh';
-      const sin = clean(req.body?.sin, 300) || 'không chịu khai tội';
+      const sin = clean(req.body?.sin, 300) || 'không chịu khai, chỉ cười trừ';
       // Chế độ dev: cho chọn thẳng tầng để test
       const forced = Number(req.body?.level);
       const devLevel = process.env.NODE_ENV !== 'production' && Number.isInteger(forced) && forced >= 1 && forced <= FLOORS.length;
@@ -33,7 +33,7 @@ const gameServer = new Server({
       const hue = Math.floor(Math.random() * 360);
       const id = randomUUID();
       const ticket = issueTicket({ id, name, sin, hue, level });
-      addFeed({ kind: 'judge', name, level, who: id, text: `bị đày xuống tầng ${level} vì: "${sin.length > 80 ? sin.slice(0, 78) + '…' : sin}"` });
+      addFeed({ kind: 'judge', name, level, who: id, text: `bị "mời" xuống tầng ${level} vì: "${sin.length > 80 ? sin.slice(0, 78) + '…' : sin}"` });
       const body: JudgeResponse = { id, level, ticket, hue };
       res.json(body);
     });

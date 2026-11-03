@@ -30,9 +30,9 @@ function Judge() {
         <div className="seal">閻</div>
         <h1>Địa Ngục Online</h1>
         <p className="sub">
-          Hồn vừa lìa khỏi xác. Hắc Bạch Vô Thường sẽ dẫn bạn qua Quỷ Môn Quan, quỳ trước Diêm La Vương để bị tra hỏi. Khai thật hay khai gian, Gương Nghiệt đều soi thấy.
+          Ối, bạn vừa "lên đường" vì một lý do hết sức lãng xẹt! Hắc Bạch Vô Thường sẽ dắt bạn qua Quỷ Môn Quan, lên trình diện Diêm La Vương. Khai thật hay khai xạo, Gương Nghiệt đều có hình Full HD.
           <br />
-          Mười tám tầng địa ngục, mỗi tầng một tội, một cực hình. Xuống tầng nào là bị hành hình theo tội của tầng đó — <b>chịu đủ hình phạt mới bị giải lên tầng trên</b>. Chịu xong tầng 1 thì tới cầu Nại Hà gặp Mạnh Bà đi đầu thai.
+          Mười tám tầng địa ngục, mỗi tầng một tội, một hình phạt dở khóc dở cười: lưỡi lò xo, đầu nấm, cù lét lông gà, tắm nước mắm… <b>chịu đủ hình phạt mới được lên tầng trên</b>. Xong tầng 1 thì qua cầu Nại Hà, uống canh Mạnh Bà vị trà sữa rồi đi đầu thai.
         </p>
         <form
           onSubmit={(e) => {
@@ -51,7 +51,7 @@ function Judge() {
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={18} placeholder="VD: Nguyễn Văn A" required />
           </label>
           <button type="submit" className="primary">Ra trình diện Diêm Vương</button>
-          <p className="small">🔊 Nên bật loa để nghe Diêm Vương tra hỏi.</p>
+          <p className="small">🔊 Nên bật loa để nghe Diêm Vương "hỏi cung" cho vui.</p>
         </form>
         {import.meta.env.DEV && (
           <label style={{ marginTop: 12, display: 'block' }}>
@@ -66,7 +66,7 @@ function Judge() {
         )}
       </div>
       <aside className="card feed-card">
-        <h3>🏆 Chịu hình nhiều tầng nhất</h3>
+        <h3>🏆 Chịu phạt nhiều tầng nhất</h3>
         <p className="small">Đã đầu thai xếp trước, sau đó theo số tầng đã chịu xong.</p>
         <Leaderboard />
         <h3 style={{ marginTop: 18 }}>📜 Sổ Sinh Tử (trực tiếp)</h3>
@@ -80,7 +80,7 @@ function Reborn() {
   const as = useGame((s) => s.rebornAs);
   const set = useGame((s) => s.set);
   const [drunk, setDrunk] = useState(false);
-  const offer = 'Tội nghiệp đã chuộc xong. Uống đi con, quên hết hồng trần, rồi đi đầu thai.';
+  const offer = 'Phạt đủ rồi đó con. Canh hôm nay vị trà sữa trân châu đường đen, uống đi rồi quên hết, đi đầu thai nè.';
   useEffect(() => {
     ambience(0);
     const t = setTimeout(() => speak(offer, 'manh'), 600);
@@ -102,17 +102,17 @@ function Reborn() {
               onClick={() => {
                 setDrunk(true);
                 sfx.pardon();
-                speak(`Kiếp sau, con sẽ là ${as}. Đi đi con.`, 'manh');
+                speak(`Kiếp sau, con sẽ là ${as}. Sống cho đàng hoàng nha con!`, 'manh');
               }}
             >
-              🍵 Uống canh Mạnh Bà
+              🧋 Uống canh Mạnh Bà vị trà sữa
             </button>
           </>
         ) : (
           <>
-            <p className="small">Bạn đã quên sạch kiếp trước. Kiếp sau bạn là...</p>
+            <p className="small">Ực ực… quên sạch kiếp trước rồi! Kiếp sau bạn là...</p>
             <h2>{as}</h2>
-            <button className="primary" onClick={() => set({ screen: 'judge' })}>Luân hồi thêm một kiếp</button>
+            <button className="primary" onClick={() => set({ screen: 'judge' })}>Chơi thêm một kiếp nữa</button>
           </>
         )}
       </div>
@@ -197,9 +197,9 @@ function Travel({ msg }: { msg: string }) {
   }, []);
   return (
     <div className="travel">
-      <div className="travel-spin">⛓️</div>
+      <div className="travel-spin">🛗</div>
       <p>{msg}</p>
-      <p className="small">{sec < 5 ? 'Xin chờ một chút…' : `Đã chờ ${sec} giây — server đang mở cửa tầng, đừng tắt trang nhé.`}</p>
+      <p className="small">{sec < 5 ? 'Xin chờ một chút…' : `Đã chờ ${sec} giây — thang máy âm phủ hơi chậm, đừng tắt trang nhé.`}</p>
     </div>
   );
 }

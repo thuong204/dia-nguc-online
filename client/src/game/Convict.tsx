@@ -82,7 +82,7 @@ const mouthMat = new THREE.MeshBasicMaterial({ color: '#2a0505' });
 const hairMat = new THREE.MeshStandardMaterial({ color: '#141010', roughness: 0.9 });
 const pantsMat = new THREE.MeshStandardMaterial({ color: '#3a3530', roughness: 1 });
 const plankMat = new THREE.MeshStandardMaterial({ color: '#6a4a2a', roughness: 0.9 });
-const poolMat = new THREE.MeshStandardMaterial({ color: '#2a0002', emissive: '#120000', roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.92, depthWrite: false });
+const poolMat = new THREE.MeshStandardMaterial({ color: '#8ad8ff', emissive: '#1a4a6a', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.7, depthWrite: false }); // vũng nước mắt
 let plankTex: THREE.Texture | null = null;
 
 export interface ConvictProps {
@@ -130,7 +130,7 @@ export const Convict = forwardRef<THREE.Group, ConvictProps>(function Convict({ 
     const pain = painOf(id);
     const p = players.get(id);
 
-    // vũng máu loang dần dưới chân khi đang ở Pháp Trường
+    // khóc nhiều quá thành vũng nước mắt loang dần dưới chân khi đang ở Pháp Trường
     if (pool.current) {
       const bound = (p?.slot ?? -1) >= 0;
       const prog = ((p?.served ?? 0) + (pain ? pain.k : 0)) / PAIN_ROUNDS;

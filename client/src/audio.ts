@@ -1,8 +1,6 @@
-// Âm thanh tự tổng hợp bằng WebAudio (không cần file) + giọng đọc tiếng Việt của trình duyệt.
+// Âm thanh hoạt hình tự tổng hợp bằng WebAudio (không cần file) + giọng đọc tiếng Việt của trình duyệt.
 let ac: AudioContext | null = null;
 let master: GainNode | null = null;
-/** Vang âm phủ: tiếng kêu khóc dội lại như trong hang sâu */
-let verb: GainNode | null = null;
 let muted = (() => {
   try {
     return localStorage.getItem('dn-mute') === '1';
@@ -21,7 +19,7 @@ function ctx() {
       ac = new AudioContext();
       master = ac.createGain();
       master.gain.value = muted ? 0 : VOL;
-      // nén đỉnh: tiếng thét / sấm không bị chói gắt
+      // nén đỉnh: tiếng kêu bất chợt không bị chói gắt
       const comp = ac.createDynamicsCompressor();
       comp.threshold.value = -20;
       comp.knee.value = 12;
@@ -29,17 +27,6 @@ function ctx() {
       comp.attack.value = 0.005;
       comp.release.value = 0.25;
       master.connect(comp).connect(ac.destination);
-      // xung phản hồi tự tạo: nhiễu tắt dần ~3.5s
-      const len = Math.floor(ac.sampleRate * 3.5), ir = ac.createBuffer(2, len, ac.sampleRate);
-      for (let c = 0; c < 2; c++) {
-        const d = ir.getChannelData(c);
-        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
-      }
-      const conv = ac.createConvolver();
-      conv.buffer = ir;
-      verb = ac.createGain();
-      verb.gain.value = 0.9;
-      verb.connect(conv).connect(master);
     } catch {
       return null;
     }
@@ -99,24 +86,6 @@ function noise(a: AudioContext) {
   return s;
 }
 
-/** Một nốt có đường bao âm lượng */
-function tone(f: number, dur: number, vol: number, type: OscillatorType = 'sine', at = 0, slideTo?: number) {
-  const a = ctx();
-  if (!a || !master) return;
-  const t = a.currentTime + at;
-  const o = a.createOscillator();
-  const g = a.createGain();
-  o.type = type;
-  o.frequency.setValueAtTime(f, t);
-  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(master);
-  o.start(t);
-  o.stop(t + dur + 0.05);
-}
-
 function burst(dur: number, vol: number, filter: BiquadFilterType, freq: number, at = 0, q = 1) {
   const a = ctx();
   if (!a || !master) return;
@@ -135,144 +104,131 @@ function burst(dur: number, vol: number, filter: BiquadFilterType, freq: number,
 }
 
 
-/* ---------- Giọng người tổng hợp (thét, khóc, rên) ---------- */
-type Vowel = 'a' | 'o' | 'u' | 'e' | 'i';
-const FORMANT: Record<Vowel, [number, number, number]> = {
-  a: [800, 1150, 2900], o: [450, 800, 2830], u: [325, 700, 2530], e: [400, 1600, 2700], i: [350, 2000, 2900],
-};
-let shaper: Float32Array | null = null;
-function roughCurve() {
-  if (!shaper) {
-    shaper = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) {
-      const x = (i / 1023) * 2 - 1;
-      shaper[i] = Math.tanh(x * 3.2);
-    }
-  }
-  return shaper;
-}
+/* ---------- Âm thanh hoạt hình (tự tổng hợp) ---------- */
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+const pickOne = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 
-interface VocalOpts {
-  f0: number;
+interface NoteOpts {
+  f: number;
+  to?: number; // trượt cao độ tới
   dur: number;
   vol: number;
-  vowel?: Vowel;
-  /** đường cao độ: các cặp [thời điểm 0..1, hệ số nhân f0] */
-  pitch?: [number, number][];
-  vib?: number; // độ rung giọng (tỉ lệ f0)
-  rough?: boolean; // khàn, rè (xé họng)
-  breath?: number; // lượng hơi thở
+  type?: OscillatorType;
   at?: number;
-  far?: boolean; // văng vẳng từ xa: nhỏ, đục, vang nhiều
+  vib?: number; // độ rung (tỉ lệ f)
+  vibRate?: number;
+  lp?: number; // lọc thấp (Hz)
+  bp?: [number, number]; // lọc dải [tần số, Q]
   pan?: number;
+  attack?: number;
+  dest?: AudioNode;
 }
-
-function vocal(o: VocalOpts) {
+/** Một nốt linh hoạt: trượt cao độ, rung, lọc — đủ làm boing, còi trượt, kèn kazoo */
+function note(o: NoteOpts) {
   const a = ctx();
   if (!a || !master) return;
-  const t = a.currentTime + (o.at ?? 0), dur = o.dur;
-  const src = a.createGain();
-  // hai sóng răng cưa lệch nhẹ cho dày giọng
-  const oscs = [1, 1.012].map((m) => {
-    const osc = a.createOscillator();
-    osc.type = 'sawtooth';
-    const pts = o.pitch ?? [[0, 1], [1, 1]];
-    osc.frequency.setValueAtTime(o.f0 * m * pts[0][1], t);
-    for (const [x, k] of pts.slice(1)) osc.frequency.linearRampToValueAtTime(o.f0 * m * k, t + x * dur);
-    osc.connect(src);
-    return osc;
-  });
-  // rung giọng + run rẩy ngẫu nhiên
-  const lfo = a.createOscillator(), lg = a.createGain();
-  lfo.frequency.value = 5 + Math.random() * 4;
-  lg.gain.value = o.f0 * (o.vib ?? 0.04);
-  lfo.connect(lg);
-  oscs.forEach((x) => lg.connect(x.frequency));
-  let chain: AudioNode = src;
-  if (o.rough) {
-    const ws = a.createWaveShaper();
-    ws.curve = roughCurve() as Float32Array<ArrayBuffer>;
-    src.gain.value = 1.6;
-    chain = src.connect(ws);
+  const t = a.currentTime + (o.at ?? 0);
+  const osc = a.createOscillator();
+  osc.type = o.type ?? 'sine';
+  osc.frequency.setValueAtTime(o.f, t);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + o.dur);
+  let lfo: OscillatorNode | null = null;
+  if (o.vib) {
+    lfo = a.createOscillator();
+    const lg = a.createGain();
+    lfo.frequency.value = o.vibRate ?? 6;
+    lg.gain.value = o.f * o.vib;
+    lfo.connect(lg).connect(osc.frequency);
   }
-  const env = a.createGain();
-  env.gain.setValueAtTime(0.0001, t);
-  env.gain.exponentialRampToValueAtTime(o.vol, t + Math.min(0.08, dur * 0.2));
-  env.gain.setValueAtTime(o.vol, t + dur * 0.6);
-  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  const [F1, F2, F3] = FORMANT[o.vowel ?? 'a'];
-  [[F1, 6, 1], [F2, 8, 0.6], [F3, 10, 0.3]].forEach(([f, q, g]) => {
-    const bp = a.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = f;
-    bp.Q.value = q;
-    const gg = a.createGain();
-    gg.gain.value = g * 2.2;
-    chain.connect(bp).connect(gg).connect(env);
-  });
-  // hơi thở / tiếng rít
-  if (o.breath) {
-    const n = noise(a), nb = a.createBiquadFilter(), ng = a.createGain();
-    nb.type = 'bandpass';
-    nb.frequency.value = 2200;
-    nb.Q.value = 0.8;
-    ng.gain.value = o.breath;
-    n.connect(nb).connect(ng).connect(env);
-    n.start(t, Math.random());
-    n.stop(t + dur + 0.05);
+  let n: AudioNode = osc;
+  if (o.lp) {
+    const f = a.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = o.lp;
+    n = n.connect(f);
   }
-  // xa thì đục, nhỏ, vang nhiều; gần thì rõ và chỉ vang chút
-  const pan = a.createStereoPanner();
-  pan.pan.value = o.pan ?? (o.far ? Math.random() * 1.6 - 0.8 : 0);
-  let out: AudioNode = env;
-  if (o.far) {
-    const lp = a.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 1300;
-    out = env.connect(lp);
+  if (o.bp) {
+    const f = a.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = o.bp[0];
+    f.Q.value = o.bp[1];
+    n = n.connect(f);
   }
-  out.connect(pan);
-  const dry = a.createGain(), wet = a.createGain();
-  dry.gain.value = o.far ? 0.25 : 1;
-  wet.gain.value = o.far ? 1 : 0.35;
-  pan.connect(dry).connect(master);
-  if (verb) pan.connect(wet).connect(verb);
-  [...oscs, lfo].forEach((x) => {
-    x.start(t);
-    x.stop(t + dur + 0.05);
-  });
-}
-
-/** Hít vào giật cục giữa tiếng khóc */
-function gasp(at: number, vol: number, far = false) {
-  const a = ctx();
-  if (!a || !master) return;
-  const t = a.currentTime + at;
-  const n = noise(a), f = a.createBiquadFilter(), g = a.createGain();
-  f.type = 'bandpass';
-  f.Q.value = 2;
-  f.frequency.setValueAtTime(900, t);
-  f.frequency.exponentialRampToValueAtTime(2600, t + 0.28);
+  const g = a.createGain();
+  const atk = o.attack ?? 0.01;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol * (far ? 0.4 : 1), t + 0.12);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
-  n.connect(f).connect(g).connect(master);
-  if (verb && far) g.connect(verb);
-  n.start(t, Math.random());
-  n.stop(t + 0.4);
+  g.gain.exponentialRampToValueAtTime(o.vol, t + atk);
+  g.gain.setValueAtTime(o.vol, t + Math.max(atk, o.dur * 0.5));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+  n.connect(g);
+  let out: AudioNode = g;
+  if (o.pan) {
+    const p = a.createStereoPanner();
+    p.pan.value = o.pan;
+    out = g.connect(p);
+  }
+  out.connect(o.dest ?? master);
+  for (const x of lfo ? [osc, lfo] : [osc]) {
+    x.start(t);
+    x.stop(t + o.dur + 0.05);
+  }
 }
 
-const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+/** xa thì nhỏ lại và lệch sang một bên */
+const farOf = (vol: number, far: boolean) => (far ? { vol: vol * 0.4, pan: rnd(-0.7, 0.7) } : { vol, pan: 0 });
 
-/** Lời van xin bằng giọng đọc, run rẩy nghẹn ngào (chỉ khi loa không bận đọc tin) */
-const PLEAS = ['Tha cho con… con lạy các ngài…', 'Con biết tội rồi… xin tha cho con…', 'Đau quá… đau quá… cứu con với…', 'Xin dừng tay… con xin các ngài…', 'Mẹ ơi… cứu con…', 'Con không dám nữa đâu… tha cho con…'];
+/** Boing lò xo */
+function boing(vol: number, far = false, at = 0) {
+  const v = farOf(vol, far);
+  const f = rnd(140, 220);
+  note({ f, to: f * 2.2, dur: 0.55, vol: 0.22 * v.vol, type: 'triangle', vib: 0.25, vibRate: rnd(14, 20), pan: v.pan, at });
+}
+/** Còi trượt lên / xuống */
+function slideWhistle(up: boolean, vol: number, far = false, at = 0, dur = 0.55) {
+  const v = farOf(vol, far);
+  const lo = rnd(450, 600), hi = lo * rnd(2.4, 3);
+  note({ f: up ? lo : hi, to: up ? hi : lo, dur, vol: 0.12 * v.vol, type: 'sine', vib: 0.02, vibRate: 7, pan: v.pan, at, attack: 0.04 });
+}
+/** Đồ chơi bóp kêu chít chít */
+function squeak(vol: number, far = false, at = 0, n = 2) {
+  const v = farOf(vol, far);
+  for (let i = 0; i < n; i++)
+    note({ f: rnd(1100, 1400), to: rnd(1600, 2000), dur: 0.09, vol: 0.09 * v.vol, type: 'square', bp: [1500, 3], pan: v.pan, at: at + i * 0.13 });
+}
+/** Kèn kazoo kiểu "ối dồi ôi" — mỗi phần tử là [hệ số cao độ, thời lượng] */
+function kazoo(pattern: [number, number][], vol: number, far = false, at = 0, base = rnd(260, 340)) {
+  const v = farOf(vol, far);
+  let t = at;
+  for (const [k, d] of pattern) {
+    note({ f: base * k, to: base * k * 0.92, dur: d, vol: 0.1 * v.vol, type: 'sawtooth', bp: [1100, 1.5], vib: 0.04, vibRate: 9, pan: v.pan, at: t, attack: 0.03 });
+    t += d + 0.03;
+  }
+}
+const oiDoiOi = (vol: number, far = false, at = 0) => kazoo([[1.5, 0.22], [1.2, 0.2], [1.6, 0.5]], vol, far, at);
+/** Tiếng bụp hoạt hình */
+function pop(vol: number, at = 0) {
+  note({ f: rnd(700, 1000), to: 180, dur: 0.08, vol: 0.2 * vol, type: 'sine', at });
+}
+/** Khúc khích */
+function giggle(vol: number, far = false, at = 0) {
+  const v = farOf(vol, far);
+  const f = rnd(700, 900);
+  for (let i = 0; i < 5; i++) note({ f: f * (1 - i * 0.05), to: f * (1 - i * 0.05) * 1.15, dur: 0.07, vol: 0.08 * v.vol, type: 'triangle', pan: v.pan, at: at + i * 0.11 });
+}
+/** Mõ gỗ */
+const woodblock = (f = 1200, vol = 0.1, at = 0) => note({ f, dur: 0.05, vol, type: 'square', bp: [f, 6], at });
+
+/** Lời van xin kiểu hài, đọc bằng giọng đọc (chỉ khi loa không bận đọc tin) */
+const PLEAS = ['Ối giời ơi tha cho con!', 'Con xin chừa, con hứa không dám nữa!', 'Ui da ui da, nhẹ tay thôi các ngài ơi!', 'Thôi thôi con biết lỗi rồi mà!', 'Mẹ ơi cứu con, con hết dám rồi!', 'Cho con xin năm phút nghỉ giải lao!'];
 /** Hồn van xin. `force` = chính mình đang chịu hình: ngắt loa âm phủ để lời van được nghe rõ. */
 let pleading = false;
 export function plead(text?: string, force = false) {
   if (muted || typeof speechSynthesis === 'undefined') return;
   const v = pickVoice();
   if (!v) {
-    sfx.sob(0.8); // không có giọng tiếng Việt → vẫn nghe tiếng khóc nấc thay lời van
+    // không có giọng tiếng Việt → kêu "ối dồi ôi" bằng kèn kazoo thay lời van
+    oiDoiOi(0.9);
+    giggle(0.5, false, 1.1);
     return;
   }
   if (speechSynthesis.speaking) {
@@ -283,231 +239,153 @@ export function plead(text?: string, force = false) {
   const u = new SpeechSynthesisUtterance(text ?? PLEAS[Math.floor(Math.random() * PLEAS.length)]);
   u.voice = v;
   u.lang = v.lang;
-  u.pitch = 1.5 + Math.random() * 0.4; // giọng the thé, nghẹn
-  u.rate = 0.78;
+  u.pitch = 1.6 + Math.random() * 0.4; // giọng the thé, nhí nhố
+  u.rate = 1.05;
   u.volume = 1;
   pleading = true;
   u.onend = u.onerror = () => (pleading = false);
   speechSynthesis.speak(u);
 }
 
-/* ---------- Âm thanh ghi âm thật (client/public/sfx, nguồn & giấy phép: CREDITS.md) ---------- */
-const SAMPLES = {
-  scream: ['scream1', 'scream2', 'scream3', 'scream4', 'scream5', 'scream6', 'scream7'],
-  cry: ['cry1', 'cry2', 'cry3', 'cry4', 'cry5', 'cry6', 'cry7', 'cry8', 'cry9'],
-  moan: ['moan1'],
-  thunder: ['thunder1', 'thunder2', 'thunder3', 'thunder4'],
-} as const;
-type Bank = keyof typeof SAMPLES;
-const bufs = new Map<string, AudioBuffer>();
-const pending = new Map<string, Promise<AudioBuffer | null>>();
-/** Tải & giải mã một file trong /sfx (mỗi file một lần) */
-function load(name: string): Promise<AudioBuffer | null> {
-  const a = ctx();
-  if (!a) return Promise.resolve(null);
-  let p = pending.get(name);
-  if (!p) {
-    p = fetch(`/sfx/${name}.mp3`)
-      .then((r) => r.arrayBuffer())
-      .then((b) => a.decodeAudioData(b))
-      .then((buf) => (bufs.set(name, buf), buf))
-      .catch(() => null);
-    pending.set(name, p);
-  }
-  return p;
-}
-let voicesLoaded = false;
-function loadSamples() {
-  if (voicesLoaded) return;
-  voicesLoaded = true;
-  Object.values(SAMPLES).flat().forEach((n) => load(n));
-}
-const lastPick = new Map<Bank, string>();
-
-/** Phát một đoạn ghi âm ngẫu nhiên trong nhóm; trả về false nếu chưa tải xong (để dùng tiếng tổng hợp thay). */
-function sample(bank: Bank, vol: number, far = false, rate = 1) {
-  const a = ctx();
-  if (!a || !master) return false;
-  loadSamples();
-  const names = SAMPLES[bank].filter((n) => bufs.has(n) && (SAMPLES[bank].length < 2 || n !== lastPick.get(bank)));
-  if (!names.length) return false;
-  const n = names[Math.floor(Math.random() * names.length)];
-  lastPick.set(bank, n);
-  const src = a.createBufferSource();
-  src.buffer = bufs.get(n)!;
-  src.playbackRate.value = rate * (0.92 + Math.random() * 0.16); // đổi cao độ chút cho đỡ lặp
-  const g = a.createGain();
-  g.gain.value = vol;
-  const pan = a.createStereoPanner();
-  pan.pan.value = far ? Math.random() * 1.6 - 0.8 : 0;
-  let node: AudioNode = src.connect(g);
-  if (far) {
-    const lp = a.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 1800;
-    node = node.connect(lp);
-  }
-  node.connect(pan);
-  const dry = a.createGain(), wet = a.createGain();
-  dry.gain.value = far ? 0.35 : 1;
-  wet.gain.value = far ? 0.8 : 0.25;
-  pan.connect(dry).connect(master);
-  if (verb) pan.connect(wet).connect(verb);
-  src.start();
-  return true;
-}
-
 export const sfx = {
+  /** Búa phán xử gõ "cốc cốc" + kèn đồng "pà-pà" */
   gong() {
-    [73, 110, 147, 196, 277].forEach((f, i) => tone(f, 4.5 - i * 0.5, 0.28 / (i + 1), 'sine'));
-    burst(0.6, 0.15, 'bandpass', 300, 0, 2);
+    woodblock(700, 0.2);
+    woodblock(700, 0.2, 0.18);
+    [196, 247, 294].forEach((f) => note({ f, dur: 0.6, vol: 0.06, type: 'sawtooth', lp: 1400, at: 0.4, attack: 0.03 }));
   },
+  /** Chuông xe đạp "kính coong" */
   bell() {
-    [880, 1320, 2210].forEach((f, i) => tone(f, 2.2 - i * 0.5, 0.12 / (i + 1)));
+    for (let i = 0; i < 6; i++) note({ f: i % 2 ? 2600 : 2200, dur: 0.06, vol: 0.05, type: 'triangle', at: i * 0.05 });
   },
   ding() {
-    tone(1046, 0.25, 0.08, 'triangle');
-    tone(1568, 0.35, 0.06, 'triangle', 0.07);
+    note({ f: 1046, dur: 0.25, vol: 0.08, type: 'triangle' });
+    note({ f: 1568, dur: 0.35, vol: 0.06, type: 'triangle', at: 0.07 });
   },
+  /** Bốp! cú đánh hoạt hình */
   hit() {
-    tone(180, 0.45, 0.25, 'sawtooth', 0, 60);
-    burst(0.25, 0.3, 'lowpass', 900);
+    note({ f: 600, to: 150, dur: 0.18, vol: 0.2, type: 'triangle' });
+    burst(0.06, 0.15, 'bandpass', 1500, 0, 2);
   },
   drum() {
-    tone(110, 0.35, 0.5, 'sine', 0, 45);
-    burst(0.08, 0.2, 'lowpass', 400);
+    note({ f: 220, to: 120, dur: 0.18, vol: 0.25, type: 'sine' });
   },
   thud() {
-    tone(80, 0.2, 0.3, 'sine', 0, 40);
+    boing(0.6);
   },
+  /** Leng keng như chuông tuần lộc */
   chain() {
-    for (let i = 0; i < 7; i++) burst(0.07, 0.18, 'highpass', 3500 + Math.random() * 2500, i * 0.06 + Math.random() * 0.03, 4);
+    for (let i = 0; i < 6; i++) note({ f: rnd(3000, 4200), dur: 0.08, vol: 0.035, type: 'sine', at: i * 0.07 + Math.random() * 0.02 });
+    burst(0.4, 0.04, 'highpass', 6000, 0, 1);
   },
+  /** Còi trượt vút lên */
   whoosh() {
-    const a = ctx();
-    if (!a || !master) return;
-    const s = noise(a);
-    const f = a.createBiquadFilter();
-    f.type = 'bandpass';
-    f.Q.value = 1.5;
-    f.frequency.setValueAtTime(200, a.currentTime);
-    f.frequency.exponentialRampToValueAtTime(2000, a.currentTime + 0.5);
-    const g = a.createGain();
-    g.gain.setValueAtTime(0.0001, a.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.25, a.currentTime + 0.25);
-    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.7);
-    s.connect(f).connect(g).connect(master);
-    s.start();
-    s.stop(a.currentTime + 0.8);
+    slideWhistle(true, 1);
   },
   tick() {
-    tone(1800, 0.03, 0.025, 'square');
+    woodblock(1600, 0.04);
   },
   countdown() {
-    tone(660, 0.12, 0.08, 'square');
+    woodblock(900, 0.1);
   },
+  /** Kèn trombone buồn "oa oa oa oaaa" */
   banish() {
     sfx.chain();
-    tone(98, 2.5, 0.3, 'sawtooth', 0.1, 40);
-    sfx.gong();
+    [[196, 0.35], [185, 0.35], [175, 0.35], [165, 1.1]].reduce((at, [f, d], i) => {
+      note({ f, dur: d, vol: 0.12, type: 'sawtooth', lp: 1100, at, attack: 0.05, vib: i === 3 ? 0.03 : 0, vibRate: 5 });
+      return at + d + 0.05;
+    }, 0.2);
   },
+  /** Kèn chiến thắng "tèn ten tèn tén" */
   pardon() {
-    sfx.gong();
-    [523, 659, 784, 1046].forEach((f, i) => tone(f, 1.6, 0.07, 'triangle', 0.25 + i * 0.12));
+    [[523, 0.12], [659, 0.12], [784, 0.12], [1046, 0.5]].reduce((at, [f, d]) => {
+      note({ f, dur: d, vol: 0.08, type: 'square', lp: 2500, at });
+      note({ f: f / 2, dur: d, vol: 0.06, type: 'triangle', at });
+      return at + d + 0.03;
+    }, 0);
   },
+  /** Rón rén nhón chân (pizzicato) */
   heartbeat() {
-    tone(60, 0.18, 0.4, 'sine', 0, 40);
-    tone(55, 0.2, 0.3, 'sine', 0.22, 38);
+    [392, 330, 392, 330].forEach((f, i) => note({ f, dur: 0.1, vol: 0.09, type: 'triangle', at: i * 0.18 }));
   },
-  /* ---- tiếng hành hình ---- */
-  /** Tiếng thét xé họng: vọt cao, rè khàn, rung giọng, tắt dần thành tiếng nấc */
+  /* ---- tiếng phản ứng khi chịu phạt ---- */
+  /** "Á!" kiểu hoạt hình: boing / còi tụt / ối dồi ôi */
   scream(vol = 1, far = false) {
-    if (sample('scream', 0.6 * vol, far)) return;
-    const f0 = rnd(520, 820), dur = rnd(1.3, 2.1);
-    vocal({ f0, dur, vol: 0.34 * vol, vowel: Math.random() < 0.5 ? 'a' : 'e', rough: true, vib: 0.07, breath: 0.25, far,
-      pitch: [[0, 0.8], [0.12, 1.25], [0.5, 1.1], [0.8, 0.85], [1, 0.55]] });
-    // lớp thứ hai the thé hơn, lệch chút cho như hai họng cùng gào
-    vocal({ f0: f0 * 1.5, dur: dur * 0.8, vol: 0.12 * vol, vowel: 'i', vib: 0.09, far, at: 0.05, pitch: [[0, 0.9], [0.2, 1.2], [1, 0.6]] });
-    if (!far) gasp(dur + 0.1, 0.18 * vol);
+    const r = Math.random();
+    if (r < 0.35) boing(vol, far);
+    else if (r < 0.65) slideWhistle(false, vol, far);
+    else oiDoiOi(vol, far);
+    if (!far && Math.random() < 0.4) pop(vol * 0.6, 0.5);
   },
-  /** Khóc nấc: từng tiếng "hu… hu…" rơi xuống, xen hít vào giật cục */
+  /** Mếu máo "hu hu" bằng kazoo */
   sob(vol = 1, far = false) {
-    if (sample('cry', 0.75 * vol, far)) return;
-    const f0 = rnd(300, 420), n = 3 + Math.floor(Math.random() * 4);
-    let at = 0;
-    for (let i = 0; i < n; i++) {
-      const d = rnd(0.22, 0.4);
-      vocal({ f0: f0 * (1 - i * 0.03), dur: d, vol: 0.22 * vol, vowel: 'u', vib: 0.12, breath: 0.35, far, at, pitch: [[0, 1.15], [1, 0.8]] });
-      at += d + rnd(0.05, 0.15);
-      if (i % 2 === 1) {
-        gasp(at, 0.12 * vol, far);
-        at += 0.35;
-      }
-    }
+    const n = 2 + Math.floor(Math.random() * 3);
+    kazoo(Array.from({ length: n }, (_, i) => [1.3 - i * 0.08, 0.16] as [number, number]), vol, far);
   },
-  /** Khóc than kéo dài, ai oán */
+  /** Kêu dài "ối giời ơiii" (còi trượt rung) */
   wail(vol = 1, far = false) {
-    if (sample('cry', 0.75 * vol, far, 0.9)) return;
-    const f0 = rnd(380, 560);
-    vocal({ f0, dur: rnd(2.2, 3.4), vol: 0.2 * vol, vowel: Math.random() < 0.5 ? 'o' : 'u', vib: 0.06, breath: 0.2, far,
-      pitch: [[0, 0.9], [0.2, 1.15], [0.45, 1], [0.6, 1.12], [1, 0.62]] });
+    slideWhistle(false, vol, far, 0, rnd(0.9, 1.3));
   },
-  /** Rên rỉ trầm, đau đớn */
+  /** Càu nhàu "hừm hừm" */
   moan(vol = 1, far = false) {
-    if (Math.random() < 0.6 ? sample('moan', 0.55 * vol, far, 0.85) : sample('cry', 0.5 * vol, far, 0.8)) return;
-    const f0 = rnd(110, 170);
-    vocal({ f0, dur: rnd(1.6, 2.6), vol: 0.3 * vol, vowel: 'o', rough: Math.random() < 0.5, vib: 0.05, breath: 0.15, far,
-      pitch: [[0, 1], [0.3, 1.18], [1, 0.8]] });
+    kazoo([[0.8, 0.25], [0.7, 0.35]], vol, far, 0, rnd(160, 200));
   },
-  /** Một tiếng kêu khóc bất kỳ (dùng cho nhạc nền & hồn đang chịu hình) */
+  /** Một tiếng kêu bất kỳ (hồn đang chịu phạt) */
   cry(vol = 1, far = false) {
     const r = Math.random();
-    if (r < 0.3) sfx.sob(vol, far);
-    else if (r < 0.55) sfx.wail(vol, far);
-    else if (r < 0.8) sfx.moan(vol, far);
-    else sfx.scream(vol * 0.8, far);
+    if (r < 0.25) sfx.sob(vol, far);
+    else if (r < 0.45) sfx.wail(vol, far);
+    else if (r < 0.6) squeak(vol, far);
+    else if (r < 0.75) giggle(vol, far);
+    else sfx.scream(vol, far);
   },
+  /** Bẹp! */
   squelch() {
-    burst(0.18, 0.28, 'lowpass', 500, 0, 6);
-    tone(140, 0.15, 0.12, 'sine', 0.02, 70);
+    note({ f: 300, to: 90, dur: 0.15, vol: 0.18, type: 'sine' });
+    burst(0.08, 0.1, 'lowpass', 600, 0, 3);
   },
+  /** Kéo cắt "xoẹt xoẹt" chít chít */
   snip() {
-    burst(0.05, 0.3, 'highpass', 5000, 0, 3);
-    tone(2600, 0.06, 0.08, 'square', 0, 1800);
-    sfx.squelch();
+    squeak(0.8, false, 0, 2);
   },
+  /** Chọc lét: bụp + khúc khích */
   stab() {
-    tone(3200, 0.25, 0.06, 'triangle', 0, 2400);
-    sfx.squelch();
+    pop(0.8);
+    giggle(0.6, false, 0.08);
   },
+  /** Xèo xèo như nước ngọt có ga */
   sizzle() {
-    burst(0.9, 0.12, 'highpass', 4000, 0, 0.7);
+    burst(0.6, 0.05, 'highpass', 5000, 0, 0.7);
+    for (let i = 0; i < 5; i++) note({ f: rnd(1200, 2200), to: rnd(2500, 3500), dur: 0.04, vol: 0.04, type: 'sine', at: rnd(0, 0.5) });
   },
   crack() {
-    burst(0.08, 0.3, 'highpass', 2500, 0, 2);
-    tone(1900, 0.12, 0.05, 'triangle', 0.02, 900);
+    pop(1);
   },
+  /** Nhai rộp rộp */
   crunch() {
-    tone(70, 0.3, 0.45, 'sine', 0, 35);
-    burst(0.22, 0.35, 'lowpass', 1400, 0, 1);
-    burst(0.12, 0.2, 'bandpass', 600, 0.05, 4);
+    for (let i = 0; i < 3; i++) burst(0.05, 0.14, 'bandpass', rnd(1500, 2500), i * 0.1, 2);
   },
   bubble() {
-    for (let i = 0; i < 4; i++) tone(260 + Math.random() * 300, 0.08, 0.07, 'sine', i * 0.07, 700);
+    for (let i = 0; i < 4; i++) note({ f: 260 + Math.random() * 300, to: 700, dur: 0.08, vol: 0.07, type: 'sine', at: i * 0.07 });
   },
+  /** Kèn kazoo rè rè */
   grind() {
-    burst(0.45, 0.22, 'bandpass', 300, 0, 3);
-    tone(55, 0.45, 0.15, 'sawtooth', 0, 50);
+    kazoo([[1, 0.2], [1.05, 0.2]], 0.6, false, 0, 150);
   },
+  /** Cưa "dzít dzít" (còi trượt lên xuống nhanh) */
   saw() {
-    burst(0.15, 0.22, 'bandpass', 2200, 0, 5);
-    burst(0.15, 0.22, 'bandpass', 1500, 0.17, 5);
+    slideWhistle(true, 0.6, false, 0, 0.15);
+    slideWhistle(false, 0.6, false, 0.17, 0.15);
   },
 };
 
-/* ---------- Nhạc nền u ám (ghi âm thật), mỗi tầng một sắc ---------- */
+/* ---------- Nhạc nền vui nhộn (tự tổng hợp), mỗi tầng một giọng ---------- */
 let amb: { stop: () => void } | null = null;
 let pendingAmb: number | null = null;
+
+const MAJOR = [0, 2, 4, 7, 9]; // ngũ cung trưởng: tươi vui
+const SNEAKY = [0, 3, 5, 7, 10]; // ngũ cung thứ: rón rén kiểu "phiên toà"
+const hz = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12);
 
 /** level 0 = điện Diêm Vương; 1..18 = các tầng. */
 export function ambience(level: number) {
@@ -519,76 +397,70 @@ export function ambience(level: number) {
   let alive = true;
   const out = a.createGain();
   out.gain.setValueAtTime(0.0001, a.currentTime);
-  out.gain.exponentialRampToValueAtTime(1, a.currentTime + 3);
+  out.gain.exponentialRampToValueAtTime(0.55, a.currentTime + 2);
   out.connect(master);
-  const nodes: AudioScheduledSourceNode[] = [];
 
-  /** Phát lặp một file nền */
-  const loop = (name: string, vol: number, rate = 1, lowpass = 0) =>
-    load(name).then((buf) => {
-      if (!buf || !alive) return;
-      const src = a.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.playbackRate.value = rate;
-      const g = a.createGain();
-      g.gain.value = vol;
-      let n: AudioNode = src;
-      if (lowpass) {
-        const lp = a.createBiquadFilter();
-        lp.type = 'lowpass';
-        lp.frequency.value = lowpass;
-        n = src.connect(lp);
+  const trial = level === 0;
+  const scale = trial ? SNEAKY : MAJOR;
+  const root = trial ? 50 : 53 + ((level * 5) % 12); // mỗi tầng một giọng
+  const bpm = trial ? 92 : 104 + (level % 4) * 6;
+  const step = 60 / bpm / 2; // nốt móc đơn
+  // giai điệu 2 ô nhịp (16 nốt móc đơn), lặp lại, thỉnh thoảng đổi
+  const makeMotif = () => Array.from({ length: 16 }, (_, i) => (Math.random() < (i % 2 ? 0.35 : 0.6) ? Math.floor(Math.random() * 7) : -1));
+  let motif = makeMotif();
+  const chords = trial ? [0, 0, 3, 4] : [0, 3, 4, 0]; // bậc hợp âm theo ô nhịp
+  const deg = (d: number) => Math.floor(d / 5) * 12 + scale[d % 5];
+
+  let next = a.currentTime + 0.1;
+  let i = 0;
+  const schedule = () => {
+    if (!alive) return;
+    while (next < a.currentTime + 0.3) {
+      const at = next - a.currentTime;
+      const bar = Math.floor(i / 8) % 4;
+      const ch = root + deg(chords[bar]);
+      const beat = i % 8;
+      if (!muted) {
+        // "um": bass ở phách 1 & 3
+        if (beat === 0 || beat === 4) note({ f: hz(ch - 12 + (beat === 4 ? 7 : 0)), dur: step * 1.6, vol: 0.09, type: 'triangle', at, dest: out });
+        // "pa": hợp âm gảy ngắn ở phách 2 & 4
+        if (beat === 2 || beat === 6)
+          [0, 4, 7].forEach((k) => note({ f: hz(ch + (trial ? (k === 4 ? 3 : k) : k)), dur: step * 0.7, vol: 0.025, type: 'square', lp: 1800, at, dest: out }));
+        // giai điệu gảy như đàn ukulele
+        const m = motif[i % 16];
+        if (m >= 0) note({ f: hz(root + 12 + deg(m)), dur: step * (trial ? 0.6 : 0.9), vol: 0.04, type: 'triangle', at, dest: out });
+        // phiên toà: thêm tiếng mõ rón rén
+        if (trial && beat % 2 === 1 && Math.random() < 0.5) woodblock(1400, 0.02, at);
       }
-      n.connect(g).connect(out);
-      src.start(a.currentTime, Math.random() * buf.duration);
-      nodes.push(src);
-    });
-
-  if (level === 0) {
-    loop('bed0', 0.55); // Điện Sâm La: không khí rờn rợn, tĩnh
-    loop('wind', 0.15, 0.9, 1200);
-  } else {
-    // xen kẽ hai bản nhạc nền; tầng càng sâu càng trầm
-    const rate = 1 - ((level - 1) / 17) * 0.12;
-    loop(level % 2 ? 'bed1' : 'bed2', 0.6, rate);
-    loop('wind', level === 8 ? 0.55 : 0.28, 0.95 + (level % 3) * 0.04, level === 8 ? 0 : 2500); // núi băng gió rít mạnh
-  }
-  loadSamples();
-
-  const timers: ReturnType<typeof setTimeout>[] = [];
-  const every = (min: number, max: number, f: () => void) => {
-    const tick = () => {
-      timers.push(setTimeout(() => {
-        if (!alive) return;
-        if (!muted) f();
-        tick();
-      }, rnd(min, max)));
-    };
-    tick();
+      next += step;
+      i++;
+      if (i % 64 === 0 && Math.random() < 0.5) motif = makeMotif();
+    }
+    timer = setTimeout(schedule, 100);
   };
-  // sấm rền xa
-  every(level === 0 ? 40000 : 22000, level === 0 ? 75000 : 45000, () => sample('thunder', level === 0 ? 0.25 : 0.4, true));
-  // văng vẳng tiếng vong hồn khóc than, rên rỉ, gào thét
-  every(level === 0 ? 10000 : 7000, level === 0 ? 18000 : 14000, () => {
-    if (level === 0) Math.random() < 0.6 ? sfx.sob(0.3, true) : sfx.moan(0.3, true);
-    else sfx.cry(rnd(0.3, 0.55), true);
-  });
-  // thỉnh thoảng chuông xa / xích loảng xoảng
-  every(9000, 16000, () => {
-    if (Math.random() < 0.5) [440, 660].forEach((f, i) => tone(f * (0.5 + Math.random() * 0.2), 3, 0.025 / (i + 1)));
-    else if (level !== 0) for (let i = 0; i < 4; i++) burst(0.06, 0.05, 'highpass', 4000, i * 0.08, 3);
-  });
+  let timer: ReturnType<typeof setTimeout> = setTimeout(schedule, 0);
+
+  // thỉnh thoảng một tiếng hài văng vẳng (khúc khích, boing, chít chít)
+  let fx: ReturnType<typeof setTimeout>;
+  const tick = () => {
+    fx = setTimeout(() => {
+      if (!alive) return;
+      if (!muted) pickOne([() => giggle(0.5, true), () => boing(0.5, true), () => squeak(0.5, true), () => oiDoiOi(0.4, true)])();
+      tick();
+    }, rnd(trial ? 15000 : 9000, trial ? 28000 : 18000));
+  };
+  tick();
 
   amb = {
     stop() {
       alive = false;
-      timers.forEach(clearTimeout);
+      clearTimeout(timer);
+      clearTimeout(fx);
       const t = a.currentTime;
       out.gain.cancelScheduledValues(t);
       out.gain.setValueAtTime(out.gain.value, t);
       out.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-      nodes.forEach((n) => n.stop(t + 1.3));
+      setTimeout(() => out.disconnect(), 1500);
     },
   };
 }
@@ -596,9 +468,9 @@ export function ambience(level: number) {
 /* ---------- Giọng đọc (Web Speech, có sẵn trong trình duyệt) ---------- */
 export type Speaker = 'diem' | 'hac' | 'bach' | 'manh' | 'phan';
 const VOICE: Record<Speaker, { pitch: number; rate: number }> = {
-  diem: { pitch: 0.3, rate: 0.85 }, // Diêm Vương: trầm, chậm, uy nghiêm
-  hac: { pitch: 0.55, rate: 1.05 }, // Hắc Vô Thường: gắt
-  bach: { pitch: 1.6, rate: 0.95 }, // Bạch Vô Thường: cao, rờn rợn
+  diem: { pitch: 0.6, rate: 0.9 }, // Diêm Vương: trầm, ra vẻ uy nghiêm
+  hac: { pitch: 0.8, rate: 1.1 }, // Hắc Vô Thường: nhanh nhảu
+  bach: { pitch: 1.5, rate: 1.05 }, // Bạch Vô Thường: cao, lém lỉnh
   manh: { pitch: 1.25, rate: 0.82 }, // Mạnh Bà: già, hiền
   phan: { pitch: 0.7, rate: 0.95 }, // Phán Quan
 };

@@ -70,8 +70,8 @@ function Scene({ ids, myId }: { ids: string[]; myId: string }) {
   return (
     <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 55, position: [0, 9.6, 23] }}>
       {/* đêm trăng âm phủ: lạnh, mờ, sương xanh */}
-      <color attach="background" args={['#04060c']} />
-      <fogExp2 attach="fog" args={['#0a0e1c', 0.016]} />
+      <color attach="background" args={['#3a2a5c']} />
+      <fogExp2 attach="fog" args={['#5a3f7a', 0.008]} />
       <hemisphereLight args={['#8a9ad0', '#1a0c10', 0.75]} />
       <ambientLight color="#8090c0" intensity={0.3} />
       <SamLaHall />
@@ -142,7 +142,7 @@ export default function Tribunal() {
         room.current = r;
       })
       .catch(() => {
-        toast('Chánh Điện đang đóng cửa... thử lại sau');
+        toast('Chánh Điện đang nghỉ trưa... thử lại sau nha');
         useGame.getState().set({ screen: 'judge' });
       });
     const t = setInterval(() => tick((n) => n + 1), 500); // cập nhật hàng chờ
@@ -180,7 +180,7 @@ export default function Tribunal() {
     if (!verdict || going.current) return;
     going.current = true;
     setBusy(true);
-    useGame.getState().set({ soulId: verdict.id, travel: `Ngưu Đầu Mã Diện đang áp giải bạn xuống Tầng ${verdict.level}…` });
+    useGame.getState().set({ soulId: verdict.id, travel: `Ngưu Đầu Mã Diện đang dắt bạn xuống Tầng ${verdict.level}… nhớ bám chặt!` });
     try {
       const old = room.current;
       room.current = null;
@@ -189,7 +189,7 @@ export default function Tribunal() {
       useGame.getState().set({ screen: 'game', travel: null });
     } catch {
       useGame.getState().set({ travel: null });
-      toast('Lạc đường xuống tầng... hãy vào điện lại');
+      toast('Lạc đường xuống tầng rồi... vào điện lại nha');
       useGame.getState().set({ screen: 'judge' });
     }
   }
@@ -232,7 +232,7 @@ export default function Tribunal() {
       <aside className="hall-queue">
         {closeX(() => setQueueMin(true))}
         <h3>⚖️ Chánh Điện · Sâm La Điện</h3>
-        <p className="small">Các oan hồn quỳ chờ. Lần lượt từng người lên trước án khai tội, Diêm Vương phán tầng theo mức độ tội.</p>
+        <p className="small">Các hồn xếp hàng chờ. Lần lượt từng người lên khai, Diêm Vương nghe xong phán tầng theo độ lầy của tội.</p>
         <ol>
           {queue.map((q, i) => (
             <li key={q.id} className={q.id === turn ? 'cur' : q.id === myId ? 'me' : ''}>
@@ -242,7 +242,7 @@ export default function Tribunal() {
             </li>
           ))}
         </ol>
-        {!verdict && myPos > 0 && !mine && <p className="small">Còn {myPos} hồn nữa mới tới lượt bạn. Hãy quỳ đợi…</p>}
+        {!verdict && myPos > 0 && !mine && <p className="small">Còn {myPos} hồn nữa mới tới lượt bạn. Ngồi chơi xơi nước nha…</p>}
       </aside>
       )}
 
@@ -252,11 +252,11 @@ export default function Tribunal() {
         <div className="dialog verdict">
           <div className="dialog-name">Phán quyết</div>
           <div className="dialog-text">
-            Bạn bị đày xuống <b>Tầng {verdict.level} · {vf.name}</b>.<br />
+            Bạn được mời xuống <b>Tầng {verdict.level} · {vf.name}</b>.<br />
             <span className="small">Tội: {vf.sin} — {vf.punishment}</span>
           </div>
           <button className="primary descend" disabled={busy} onClick={descend}>
-            ⛓️ Nhận án & xuống Tầng {verdict.level}
+            😅 Nhận phạt & xuống Tầng {verdict.level}
           </button>
         </div>
       ) : line ? (
@@ -282,7 +282,7 @@ export default function Tribunal() {
       ) : (
         <div className="dialog">
           {closeX(() => setDialogMin(true))}
-          <div className="dialog-text">{ids.length ? 'Hắc Bạch Vô Thường đang áp giải hồn kế tiếp…' : 'Đang vào Chánh Điện…'}</div>
+          <div className="dialog-text">{ids.length ? 'Hắc Bạch Vô Thường đang đi gọi hồn kế tiếp…' : 'Đang vào Chánh Điện…'}</div>
         </div>
       )}
       {/* ô trả lời Diêm Vương: chỉ mở khi tới lượt mình bị hỏi */}
@@ -301,7 +301,7 @@ export default function Tribunal() {
             ref={input}
             maxLength={90}
             disabled={!answering}
-            placeholder={answering ? 'Trả lời Diêm Vương bằng lời của ngươi…' : mine ? 'Nghe Diêm Vương hỏi…' : 'Chờ tới lượt bạn lên khai…'}
+            placeholder={answering ? 'Tự khai bằng lời của ngươi (càng lầy càng tốt)…' : mine ? 'Nghe Diêm Vương hỏi…' : 'Chờ tới lượt bạn lên khai…'}
             autoComplete="off"
           />
           <button className="primary" type="submit" disabled={!answering}>Khai</button>

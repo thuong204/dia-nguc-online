@@ -46,16 +46,16 @@ function brocade(base: string, motif: string) {
 
 const floorTex = () =>
   canvasTex(512, 512, (g) => {
-    g.fillStyle = '#1a1210';
+    g.fillStyle = '#6a5a70';
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 4; i++)
       for (let j = 0; j < 4; j++) {
-        const v = 26 + ((i * 7 + j * 13) % 9);
-        g.fillStyle = `rgb(${v + 8},${v},${v - 4})`;
+        const v = 120 + ((i + j) % 2) * 30 + ((i * 7 + j * 13) % 9); // gạch caro sáng
+        g.fillStyle = `rgb(${v + 10},${v},${v + 16})`;
         g.fillRect(i * 128 + 3, j * 128 + 3, 122, 122);
       }
     for (let k = 0; k < 900; k++) {
-      g.fillStyle = `rgba(0,0,0,${Math.random() * 0.25})`;
+      g.fillStyle = `rgba(0,0,0,${Math.random() * 0.08})`;
       g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
     }
   }, [10, 10]);
@@ -64,9 +64,9 @@ const floorTex = () =>
 const screenTex = () =>
   canvasTex(1024, 512, (g) => {
     const sky = g.createLinearGradient(0, 0, 0, 512);
-    sky.addColorStop(0, '#2a0806');
-    sky.addColorStop(0.55, '#5a1208');
-    sky.addColorStop(1, '#0a1a24');
+    sky.addColorStop(0, '#ff9ac0');
+    sky.addColorStop(0.55, '#ffd08a');
+    sky.addColorStop(1, '#6ac8e8');
     g.fillStyle = sky;
     g.fillRect(0, 0, 1024, 512);
     const sun = g.createRadialGradient(512, 200, 10, 512, 200, 150);
@@ -102,21 +102,21 @@ const screenTex = () =>
   });
 
 const M = {
-  lacquer: new THREE.MeshStandardMaterial({ color: '#6a0e0a', roughness: 0.35, metalness: 0.15 }),
+  lacquer: new THREE.MeshStandardMaterial({ color: '#e8385a', roughness: 0.35, metalness: 0.1 }),
   gold: new THREE.MeshStandardMaterial({ color: '#d4a03a', metalness: 0.9, roughness: 0.28, emissive: '#3a2400' }),
-  stone: new THREE.MeshStandardMaterial({ color: '#3a302c', roughness: 0.9 }),
-  darkWood: new THREE.MeshStandardMaterial({ color: '#2a1008', roughness: 0.6 }),
-  bronze: new THREE.MeshStandardMaterial({ color: '#5a4020', metalness: 0.85, roughness: 0.4, emissive: '#1a0c00' }),
-  beam: new THREE.MeshStandardMaterial({ color: '#1f4a4a', roughness: 0.6 }),
+  stone: new THREE.MeshStandardMaterial({ color: '#b0a0c0', roughness: 0.85 }),
+  darkWood: new THREE.MeshStandardMaterial({ color: '#a0603a', roughness: 0.6 }),
+  bronze: new THREE.MeshStandardMaterial({ color: '#d0a050', metalness: 0.6, roughness: 0.4 }),
+  beam: new THREE.MeshStandardMaterial({ color: '#3ac0b0', roughness: 0.6 }),
   black: new THREE.MeshStandardMaterial({ color: '#0c0c0e', roughness: 0.5 }),
   ivory: new THREE.MeshStandardMaterial({ color: '#efe6cc', roughness: 0.6 }),
   paper: new THREE.MeshStandardMaterial({ color: '#e8d8a8', roughness: 0.8 }),
   white: new THREE.MeshBasicMaterial({ color: '#f6f2ea' }),
   pupil: new THREE.MeshBasicMaterial({ color: '#0a0505' }),
-  tongue: new THREE.MeshStandardMaterial({ color: '#c0101a', emissive: '#500008', roughness: 0.4 }),
+  tongue: new THREE.MeshStandardMaterial({ color: '#ff7aa8', roughness: 0.4 }),
   iron: new THREE.MeshStandardMaterial({ color: '#4a4a50', metalness: 0.9, roughness: 0.35 }),
-  ghostFire: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 1.8, 2.8), toneMapped: false }),
-  lantern: new THREE.MeshStandardMaterial({ color: '#c01a10', emissive: '#ff3a10', emissiveIntensity: 1.6, roughness: 0.6 }),
+  ghostFire: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.6, 2.6), toneMapped: false }), // đốm lửa hồng như kẹo bông
+  lantern: new THREE.MeshStandardMaterial({ color: '#ff5a7a', emissive: '#ff8ab0', emissiveIntensity: 1.2, roughness: 0.6 }),
 };
 
 /* ================= Nhân vật ================= */
@@ -427,7 +427,7 @@ function Mist() {
 }
 
 function Desk() {
-  const cloth = useMemo(() => brocade('#8a1010', '#e0a040'), []);
+  const cloth = useMemo(() => brocade('#e8385a', '#ffe08a'), []);
   const clothMat = useMemo(() => new THREE.MeshStandardMaterial({ map: cloth, roughness: 0.8 }), [cloth]);
   return (
     <group position={[0, 0.9, -6.5]}>
@@ -481,8 +481,8 @@ function Throne() {
 export function SamLaHall() {
   const fTex = useMemo(floorTex, []);
   const sTex = useMemo(screenTex, []);
-  const plaque = useMemo(() => textTexture(['森羅殿'], { w: 1024, h: 320, size: 230, serif: true, color: '#ffd27a', bg: '#0e0606', glow: '#ff7a00' }), []);
-  const carpet = useMemo(() => brocade('#5a0808', '#a06020'), []);
+  const plaque = useMemo(() => textTexture(['森羅殿'], { w: 1024, h: 320, size: 230, serif: true, color: '#fff4c0', bg: '#c0306a', glow: '#ffd27a' }), []);
+  const carpet = useMemo(() => brocade('#c0306a', '#ffd27a'), []);
   const throneTarget = useMemo(() => {
     const o = new THREE.Object3D();
     o.position.set(0, 2, -7.5);
@@ -534,7 +534,8 @@ export function SamLaHall() {
       <GhostFires />
       <Mist />
       {/* ánh trăng lạnh lọt qua mái, đèn lửa chỉ le lói quanh ngai */}
-      <directionalLight color="#b4c6ff" intensity={1.3} position={[-14, 22, 10]} castShadow shadow-mapSize={[2048, 2048]}
+      <hemisphereLight args={['#fff0e0', '#a080c0', 1.1]} />
+      <directionalLight color="#fff4e0" intensity={2} position={[-14, 22, 10]} castShadow shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} />
       <MoonShafts />
       {/* rọi sáng ngai và các quan để luôn nhìn rõ Diêm Vương */}
@@ -543,21 +544,21 @@ export function SamLaHall() {
       <pointLight color="#ff6a30" intensity={22} distance={18} position={[0, 6, -5]} />
       <pointLight color="#ffb070" intensity={6} distance={9} position={[0, 4, -5.2]} />
       {/* ánh trăng phủ lên hàng oan hồn đang quỳ */}
-      <pointLight color="#9ab0ff" intensity={30} distance={24} position={[0, 8, 8]} />
-      <pointLight color="#3a8aff" intensity={10} distance={12} position={[5, 3.5, -6]} />
-      <pointLight color="#4a6aff" intensity={6} distance={18} position={[-8, 4, 8]} />
-      <pointLight color="#4a6aff" intensity={6} distance={18} position={[8, 4, 12]} />
+      <pointLight color="#ffe0f0" intensity={45} distance={28} position={[0, 8, 8]} />
+      <pointLight color="#ffb0e0" intensity={10} distance={12} position={[5, 3.5, -6]} />
+      <pointLight color="#a0e0ff" intensity={10} distance={18} position={[-8, 4, 8]} />
+      <pointLight color="#ffe08a" intensity={10} distance={18} position={[8, 4, 12]} />
     </>
   );
 }
 
 /* ================= Các nhân vật đặt vào điện ================= */
 export function Court() {
-  const yanRobe = useMemo(() => new THREE.MeshStandardMaterial({ map: brocade('#7a0c0a', '#e8b040'), roughness: 0.55 }), []);
-  const judgeRobe = useMemo(() => new THREE.MeshStandardMaterial({ map: brocade('#1d4636', '#7ab08a'), roughness: 0.6 }), []);
-  const blackRobe = useMemo(() => new THREE.MeshStandardMaterial({ color: '#141416', roughness: 0.7 }), []);
+  const yanRobe = useMemo(() => new THREE.MeshStandardMaterial({ map: brocade('#e8385a', '#ffe08a'), roughness: 0.55 }), []);
+  const judgeRobe = useMemo(() => new THREE.MeshStandardMaterial({ map: brocade('#3ac0a0', '#e0ffe8'), roughness: 0.6 }), []);
+  const blackRobe = useMemo(() => new THREE.MeshStandardMaterial({ color: '#3a3a5a', roughness: 0.7 }), []);
   const whiteRobe = useMemo(() => new THREE.MeshStandardMaterial({ color: '#e6e4de', roughness: 0.7 }), []);
-  const grey = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5a5a60', roughness: 0.6 }), []);
+  const grey = useMemo(() => new THREE.MeshStandardMaterial({ color: '#a0a0c0', roughness: 0.6 }), []);
   const yan = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (yan.current) yan.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.06; // Diêm Vương khẽ quay đầu nhìn
