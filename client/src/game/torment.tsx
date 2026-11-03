@@ -59,9 +59,12 @@ function cry(id: string) {
   const v = nearVol(id);
   if (!v) return;
   const r = Math.random();
-  if (r < 0.5) sfx.scream(v);
+  // khóc nấc van xin nhiều hơn thét
+  if (r < 0.35) sfx.scream(v);
   else if (r < 0.75) sfx.sob(v);
   else sfx.moan(v);
+  // chính mình chịu hình: thỉnh thoảng nghẹn ngào van xin giữa cơn đau
+  if (id === useGame.getState().myId && Math.random() < 0.3) setTimeout(() => plead(undefined, true), 400);
 }
 
 /** Bắt đầu chịu hình: hồn gào lên van xin, mình thì nghe rõ tiếng. */
@@ -73,7 +76,7 @@ function onStart(id: string) {
   sfx.scream(v);
   if (id === useGame.getState().myId) {
     sfx.chain();
-    plead(line); // giọng mình van xin
+    plead(line, true); // giọng mình van xin — ngắt loa để nghe rõ
   } else if (v > 0.4 && Math.random() < 0.5) plead(line);
 }
 

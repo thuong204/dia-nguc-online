@@ -180,7 +180,7 @@ async function enterFloor(level: number, ticket: string) {
     sfx.chain();
     sfx.heartbeat();
     sfx.sob(); // nghỉ giữa hiệp: khóc nấc, van xin
-    setTimeout(() => plead(), 600);
+    setTimeout(() => plead(undefined, true), 600);
   });
   r.onMessage('bound', ({ id, name }: { id: string; name: string }) => {
     sfx.chain();
@@ -194,7 +194,7 @@ async function enterFloor(level: number, ticket: string) {
       G().set({ seizeAt: 0 });
       if (forced) {
         sfx.scream();
-        setTimeout(() => plead('Buông ta ra! Ta không có tội! Tha cho ta…'), 500);
+        setTimeout(() => plead('Buông ta ra! Ta không có tội! Tha cho ta…', true), 500);
       } else sfx.sob(0.8);
       toast(forced ? '⛓️ Ngươi dám chống cự! Ngưu Đầu Mã Diện tới lôi ngươi ra Pháp Trường!' : '🙏 Đã nhận tội — Ngưu Đầu Mã Diện áp giải bạn tới Pháp Trường…');
     } else {

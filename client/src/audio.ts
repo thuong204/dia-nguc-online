@@ -12,13 +12,23 @@ let muted = (() => {
 })();
 const listeners = new Set<(m: boolean) => void>();
 
+/** Âm lượng tổng (trước đây 0.8 — nghe quá dữ) */
+const VOL = 0.5;
+
 function ctx() {
   if (!ac) {
     try {
       ac = new AudioContext();
       master = ac.createGain();
-      master.gain.value = muted ? 0 : 0.8;
-      master.connect(ac.destination);
+      master.gain.value = muted ? 0 : VOL;
+      // nén đỉnh: tiếng thét / sấm không bị chói gắt
+      const comp = ac.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.knee.value = 12;
+      comp.ratio.value = 4;
+      comp.attack.value = 0.005;
+      comp.release.value = 0.25;
+      master.connect(comp).connect(ac.destination);
       // xung phản hồi tự tạo: nhiễu tắt dần ~3.5s
       const len = Math.floor(ac.sampleRate * 3.5), ir = ac.createBuffer(2, len, ac.sampleRate);
       for (let c = 0; c < 2; c++) {
@@ -64,7 +74,7 @@ export function setMuted(m: boolean) {
     /* bỏ qua */
   }
   if (master && ac) {
-    master.gain.setTargetAtTime(m ? 0 : 0.8, ac.currentTime, 0.05);
+    master.gain.setTargetAtTime(m ? 0 : VOL, ac.currentTime, 0.05);
     // dừng hẳn bộ âm thanh khi tắt (chắc chắn im lặng), bật lại thì chạy tiếp
     if (m) setTimeout(() => muted && ac?.suspend().catch(() => {}), 150);
     else ac.resume().then(() => pendingAmb !== null && ambience(pendingAmb)).catch(() => {});
@@ -256,16 +266,28 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Lời van xin bằng giọng đọc, run rẩy nghẹn ngào (chỉ khi loa không bận đọc tin) */
 const PLEAS = ['Tha cho con… con lạy các ngài…', 'Con biết tội rồi… xin tha cho con…', 'Đau quá… đau quá… cứu con với…', 'Xin dừng tay… con xin các ngài…', 'Mẹ ơi… cứu con…', 'Con không dám nữa đâu… tha cho con…'];
-export function plead(text?: string) {
-  if (muted || typeof speechSynthesis === 'undefined' || speechSynthesis.speaking) return;
+/** Hồn van xin. `force` = chính mình đang chịu hình: ngắt loa âm phủ để lời van được nghe rõ. */
+let pleading = false;
+export function plead(text?: string, force = false) {
+  if (muted || typeof speechSynthesis === 'undefined') return;
   const v = pickVoice();
-  if (!v) return;
+  if (!v) {
+    sfx.sob(0.8); // không có giọng tiếng Việt → vẫn nghe tiếng khóc nấc thay lời van
+    return;
+  }
+  if (speechSynthesis.speaking) {
+    if (!force || pleading) return; // đang van dở câu trước thì để nói hết
+    speechSynthesis.cancel();
+  }
+  if (force) hushAnnouncer(5000);
   const u = new SpeechSynthesisUtterance(text ?? PLEAS[Math.floor(Math.random() * PLEAS.length)]);
   u.voice = v;
   u.lang = v.lang;
   u.pitch = 1.5 + Math.random() * 0.4; // giọng the thé, nghẹn
   u.rate = 0.78;
   u.volume = 1;
+  pleading = true;
+  u.onend = u.onerror = () => (pleading = false);
   speechSynthesis.speak(u);
 }
 
@@ -400,7 +422,7 @@ export const sfx = {
   /* ---- tiếng hành hình ---- */
   /** Tiếng thét xé họng: vọt cao, rè khàn, rung giọng, tắt dần thành tiếng nấc */
   scream(vol = 1, far = false) {
-    if (sample('scream', 0.9 * vol, far)) return;
+    if (sample('scream', 0.6 * vol, far)) return;
     const f0 = rnd(520, 820), dur = rnd(1.3, 2.1);
     vocal({ f0, dur, vol: 0.34 * vol, vowel: Math.random() < 0.5 ? 'a' : 'e', rough: true, vib: 0.07, breath: 0.25, far,
       pitch: [[0, 0.8], [0.12, 1.25], [0.5, 1.1], [0.8, 0.85], [1, 0.55]] });
@@ -410,7 +432,7 @@ export const sfx = {
   },
   /** Khóc nấc: từng tiếng "hu… hu…" rơi xuống, xen hít vào giật cục */
   sob(vol = 1, far = false) {
-    if (sample('cry', 0.85 * vol, far)) return;
+    if (sample('cry', 0.75 * vol, far)) return;
     const f0 = rnd(300, 420), n = 3 + Math.floor(Math.random() * 4);
     let at = 0;
     for (let i = 0; i < n; i++) {
@@ -425,14 +447,14 @@ export const sfx = {
   },
   /** Khóc than kéo dài, ai oán */
   wail(vol = 1, far = false) {
-    if (sample('cry', 0.85 * vol, far, 0.9)) return;
+    if (sample('cry', 0.75 * vol, far, 0.9)) return;
     const f0 = rnd(380, 560);
     vocal({ f0, dur: rnd(2.2, 3.4), vol: 0.2 * vol, vowel: Math.random() < 0.5 ? 'o' : 'u', vib: 0.06, breath: 0.2, far,
       pitch: [[0, 0.9], [0.2, 1.15], [0.45, 1], [0.6, 1.12], [1, 0.62]] });
   },
   /** Rên rỉ trầm, đau đớn */
   moan(vol = 1, far = false) {
-    if (Math.random() < 0.6 ? sample('moan', 0.8 * vol, far, 0.85) : sample('cry', 0.7 * vol, far, 0.8)) return;
+    if (Math.random() < 0.6 ? sample('moan', 0.55 * vol, far, 0.85) : sample('cry', 0.5 * vol, far, 0.8)) return;
     const f0 = rnd(110, 170);
     vocal({ f0, dur: rnd(1.6, 2.6), vol: 0.3 * vol, vowel: 'o', rough: Math.random() < 0.5, vib: 0.05, breath: 0.15, far,
       pitch: [[0, 1], [0.3, 1.18], [1, 0.8]] });
@@ -546,11 +568,11 @@ export function ambience(level: number) {
     tick();
   };
   // sấm rền xa
-  every(level === 0 ? 30000 : 14000, level === 0 ? 60000 : 32000, () => sample('thunder', level === 0 ? 0.35 : 0.6, true));
+  every(level === 0 ? 40000 : 22000, level === 0 ? 75000 : 45000, () => sample('thunder', level === 0 ? 0.25 : 0.4, true));
   // văng vẳng tiếng vong hồn khóc than, rên rỉ, gào thét
-  every(level === 0 ? 6000 : 4000, level === 0 ? 12000 : 9000, () => {
-    if (level === 0) Math.random() < 0.6 ? sfx.sob(0.45, true) : sfx.moan(0.45, true);
-    else sfx.cry(rnd(0.45, 0.8), true);
+  every(level === 0 ? 10000 : 7000, level === 0 ? 18000 : 14000, () => {
+    if (level === 0) Math.random() < 0.6 ? sfx.sob(0.3, true) : sfx.moan(0.3, true);
+    else sfx.cry(rnd(0.3, 0.55), true);
   });
   // thỉnh thoảng chuông xa / xích loảng xoảng
   every(9000, 16000, () => {
