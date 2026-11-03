@@ -41,15 +41,19 @@ export interface Soul {
 const tickets = new Map<string, { soul: Soul; exp: number }>();
 export function issueTicket(soul: Soul) {
   const id = randomUUID();
-  tickets.set(id, { soul, exp: Date.now() + 60_000 });
+  tickets.set(id, { soul, exp: Date.now() + 5 * 60_000 }); // server chuyển tầng có thể chậm → cho vé sống 5 phút
   return id;
 }
-export function consumeTicket(id: unknown): Soul | null {
+/** Xem vé còn hợp lệ không (chưa xé) — để client vào hụt vì mạng chậm vẫn thử lại được bằng chính vé đó. */
+export function peekTicket(id: unknown): Soul | null {
   if (typeof id !== 'string') return null;
   const t = tickets.get(id);
-  tickets.delete(id);
   if (!t || t.exp < Date.now()) return null;
   return t.soul;
+}
+/** Xé vé khi hồn đã thực sự vào được tầng. */
+export function useTicket(id: unknown) {
+  if (typeof id === 'string') tickets.delete(id);
 }
 setInterval(() => {
   const now = Date.now();

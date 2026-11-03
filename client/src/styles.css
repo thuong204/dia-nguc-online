@@ -56,6 +56,10 @@ input:focus, textarea:focus { outline: 2px solid var(--fire); border-color: tran
 .view { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
 .view canvas { touch-action: none; cursor: grab; }
 .view canvas:active { cursor: grabbing; }
+.travel { position: fixed; inset: 0; z-index: 35; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 16px; text-align: center; background: #050202ee; color: var(--gold); font-weight: 800; }
+.travel p { margin: 0; max-width: 420px; }
+.travel-spin { font-size: 40px; animation: travel-swing 1.2s ease-in-out infinite alternate; }
+@keyframes travel-swing { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--gold); font-weight: 800; }
 #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.45s; z-index: 4; }
 #fade.show { opacity: 1; }

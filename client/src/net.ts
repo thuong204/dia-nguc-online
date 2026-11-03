@@ -130,15 +130,32 @@ export async function devJump(level: number) {
   const old = room;
   room = null;
   G().set({ fading: true });
-  await old?.leave();
+  if (old) await leaveRoom(old);
   await enterFloor(j.level, j.ticket);
   G().set({ screen: 'game' });
   setTimeout(() => G().set({ fading: false }), 200);
   toast(`[DEV] Tầng ${j.level}`);
 }
 
+/** Vào phòng của tầng; server chậm / mạng chập chờn thì cứ chờ và thử lại (vé còn hạn 5 phút). */
+async function joinFloor(level: number, ticket: string) {
+  for (let i = 0; ; i++) {
+    try {
+      return await client.joinOrCreate('floor', { level, ticket });
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? e);
+      if (msg.includes('không hợp lệ') || i >= 7) throw e; // vé hỏng thật / thử mãi không được
+      G().set({ travel: `Âm phủ đông nghịt… đang thử lại lần ${i + 2}` });
+      await wait(Math.min(1500 * (i + 1), 6000));
+    }
+  }
+}
+
+/** Rời phòng nhưng không đợi mãi nếu server chậm trả lời. */
+const leaveRoom = (r: Room) => Promise.race([r.leave().catch(() => {}), wait(2500)]);
+
 async function enterFloor(level: number, ticket: string) {
-  const r = await client.joinOrCreate('floor', { level, ticket });
+  const r = await joinFloor(level, ticket);
   room = r;
   players.clear();
   seedDecor(level);
@@ -205,9 +222,9 @@ async function enterFloor(level: number, ticket: string) {
   const moveTo = async (next: number, t: string, msg: string) => {
     if (leaving) return;
     leaving = true;
-    G().set({ fading: true });
+    G().set({ fading: true, travel: next ? `Quỷ sai đang giải bạn lên tầng ${next}…` : null });
     room = null;
-    await r.leave();
+    await leaveRoom(r);
     await wait(450);
     try {
       await enterFloor(next, t);
@@ -216,6 +233,7 @@ async function enterFloor(level: number, ticket: string) {
       toast('Lạc đường giữa các tầng... hãy khai tội lại');
       G().set({ screen: 'judge' });
     }
+    G().set({ travel: null });
     setTimeout(() => G().set({ fading: false }), 200);
   };
   r.onMessage('pardoned', ({ level: next, ticket: t }: { level: number; ticket: string }) => {
@@ -226,7 +244,7 @@ async function enterFloor(level: number, ticket: string) {
     if (leaving) return;
     leaving = true;
     room = null;
-    await r.leave();
+    await leaveRoom(r);
     sfx.pardon();
     G().set({ screen: 'reborn', rebornAs: as, level: 0, meReady: false, others: [] });
   });

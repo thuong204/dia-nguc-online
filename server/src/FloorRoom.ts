@@ -1,7 +1,7 @@
 import { Room, type Client, type Delayed } from '@colyseus/core';
 import { BOUNDS, ESCORT_SPEED, EXEC_DELAY, EXEC_SPOTS, EXEC_WAIT, FLOORS, PAIN, PAIN_DUR, PAIN_REST, PAIN_ROUNDS, REBIRTHS, RESIST_SEC, SPAWN } from '../../shared/game.ts';
 import { FloorState, Player } from './schema.ts';
-import { addFeed, consumeTicket, countSoul, hub, issueTicket, leaderboard, notePardon, stats, type Soul } from './hub.ts';
+import { addFeed, peekTicket, useTicket, countSoul, hub, issueTicket, leaderboard, notePardon, stats, type Soul } from './hub.ts';
 
 const clean = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const num = (v: unknown, fb: number) => (Number.isFinite(Number(v)) ? Number(v) : fb);
@@ -59,12 +59,13 @@ export class FloorRoom extends Room<{ state: FloorState }> {
   }
 
   onAuth(_client: Client, options: any) {
-    const soul = consumeTicket(options?.ticket);
+    const soul = peekTicket(options?.ticket);
     if (!soul || soul.level !== this.state.level) throw new Error('Vé xuống tầng không hợp lệ');
     return soul;
   }
 
-  onJoin(client: Client) {
+  onJoin(client: Client, options: any) {
+    useTicket(options?.ticket); // vào được rồi mới xé vé
     const soul = client.auth as Soul;
     const p = new Player();
     p.name = soul.name;

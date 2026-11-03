@@ -21,6 +21,8 @@ interface GameState {
   toast: string | null;
   rebornAs: string;
   fading: boolean;
+  /** Đang chờ server chuyển tầng: lời nhắn hiện trên màn chờ (null = không chờ) */
+  travel: string | null;
   /** Mình đang chịu hình: loại (0 = không) & lượt (để chạy lại thanh đếm) */
   pain: number;
   painSeq: number;
@@ -49,6 +51,7 @@ export const useGame = create<GameState>((set) => ({
   toast: null,
   rebornAs: '',
   fading: false,
+  travel: null,
   pain: 0,
   painSeq: 0,
   nearExec: false,

@@ -180,13 +180,15 @@ export default function Tribunal() {
     if (!verdict || going.current) return;
     going.current = true;
     setBusy(true);
+    useGame.getState().set({ soulId: verdict.id, travel: `Ngưu Đầu Mã Diện đang áp giải bạn xuống Tầng ${verdict.level}…` });
     try {
-      useGame.getState().set({ soulId: verdict.id });
-      await room.current?.leave();
+      const old = room.current;
       room.current = null;
+      if (old) await Promise.race([old.leave().catch(() => {}), new Promise((r) => setTimeout(r, 2500))]);
       await enterWithTicket(verdict.level, verdict.ticket);
-      useGame.getState().set({ screen: 'game' });
+      useGame.getState().set({ screen: 'game', travel: null });
     } catch {
+      useGame.getState().set({ travel: null });
       toast('Lạc đường xuống tầng... hãy vào điện lại');
       useGame.getState().set({ screen: 'judge' });
     }

@@ -188,9 +188,26 @@ function RotateHint() {
   );
 }
 
+/** Màn chờ khi server đang chuyển tầng — đếm giây để người chơi biết game vẫn đang chạy. */
+function Travel({ msg }: { msg: string }) {
+  const [sec, setSec] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="travel">
+      <div className="travel-spin">⛓️</div>
+      <p>{msg}</p>
+      <p className="small">{sec < 5 ? 'Xin chờ một chút…' : `Đã chờ ${sec} giây — server đang mở cửa tầng, đừng tắt trang nhé.`}</p>
+    </div>
+  );
+}
+
 export default function App() {
   const screen = useGame((s) => s.screen);
   const toastMsg = useGame((s) => s.toast);
+  const travel = useGame((s) => s.travel);
   const inGame = screen === 'game';
   return (
     <>
@@ -211,6 +228,7 @@ export default function App() {
           <Tribunal />
         </Suspense>
       )}
+      {travel && <Travel msg={travel} />}
       <MuteButton />
       <FullscreenButton />
       {(inGame || screen === 'tribunal') && <RotateHint />}
