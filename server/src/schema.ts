@@ -9,6 +9,7 @@ export const Player = schema(
     y: t.float32(),
     z: t.float32(),
     r: t.float32(),
+    merit: t.uint16(), // công đức riêng ở tầng hiện tại — đủ thì được lên tầng
     strikes: t.uint8(), // số lần vi phạm ở tầng hiện tại
   },
   'Player',

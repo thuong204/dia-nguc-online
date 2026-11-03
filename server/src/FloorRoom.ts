@@ -7,6 +7,14 @@ import { addFeed, consumeTicket, countSoul, hub, issueTicket, stats, type Soul }
 const clean = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const num = (v: unknown, fb: number) => (Number.isFinite(Number(v)) ? Number(v) : fb);
 
+const CYCLE_MSG: Record<number, string> = {
+  6: '💧 Các cột đồng đã nguội! Lửa lại bùng lên…',
+  8: '🧊 Khối băng đã lăn vào hố lửa! Thêm một khối mới…',
+  11: '🪨 Tảng đá đã lăn đi, một vong hồn được giải thoát!',
+  13: '🌉 Cầu qua Ao Máu đã bắc xong! Ván cũ chìm, bắc lại từ đầu…',
+  14: '🏮 Đèn đá đã thắp đủ, vong hồn uổng tử được dẫn lối!',
+};
+
 export class FloorRoom extends Room<{ state: FloorState }> {
   maxClients = 40;
   state = new FloorState();
@@ -74,6 +82,8 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     p.z = SPAWN.z - 1 + Math.random() * 2;
     p.y = 0;
     p.r = Math.PI;
+    p.merit = 0;
+    p.strikes = 0;
     this.state.players.set(client.sessionId, p);
     countSoul(this.state.level, +1);
     client.send('stats', stats());
@@ -83,6 +93,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
   onLeave(client: Client) {
     if (this.state.players.delete(client.sessionId)) countSoul(this.state.level, -1);
     this.last.delete(client.sessionId);
+    this.pardoned.delete(client.sessionId);
     this.activity.onLeave(client.sessionId);
     this.activity.onRoster();
   }
@@ -101,9 +112,21 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     return true;
   }
 
+  /** Tiến độ chung của tầng — chỉ để hiển thị cảnh vật. Đầy thì bắt đầu lượt mới. */
   addProgress(n: number) {
-    this.state.progress = Math.max(0, Math.min(this.state.need, this.state.progress + n));
-    if (this.state.progress >= this.state.need) this.pardon();
+    const v = Math.max(0, this.state.progress + n);
+    if (v >= this.state.need) {
+      this.state.progress = 0;
+      this.broadcast('notice', { msg: CYCLE_MSG[this.state.level] ?? 'Cả tầng đã hoàn thành một lượt sám hối!' });
+    } else this.state.progress = v;
+  }
+
+  /** Công đức riêng của từng hồn: ai làm người đó hưởng. */
+  credit(client: Client, n: number) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || n <= 0) return;
+    p.merit = Math.min(this.state.need, p.merit + n);
+    if (p.merit >= this.state.need) this.pardon(client);
   }
 
   /** Ghi một lần vi phạm; đủ MAX_STRIKES thì bị đày xuống tầng sâu hơn. */
@@ -127,21 +150,20 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     client.send('banished', { level: level + 1, ticket, msg });
   }
 
-  private pardon() {
+  private pardoned = new Set<string>();
+  private pardon(client: Client) {
+    if (this.pardoned.has(client.sessionId)) return;
+    this.pardoned.add(client.sessionId);
     const level = this.state.level;
-    this.state.progress = 0;
-    const souls = this.clients.length;
+    const soul = client.auth as Soul;
     if (level === 1) {
-      addFeed({ kind: 'pardon', name: 'Tầng 1', text: `sám hối xong, ${souls} hồn qua cầu Nại Hà đi đầu thai!` });
-      [...this.clients].forEach((c) => this.rebirth(c));
+      addFeed({ kind: 'pardon', name: soul.name, text: 'sám hối xong, qua cầu Nại Hà đi đầu thai!' });
+      this.rebirth(client);
       return;
     }
-    addFeed({ kind: 'pardon', name: `Tầng ${level}`, text: `được ân xá! ${souls} hồn lên tầng ${level - 1}` });
-    for (const c of this.clients) {
-      const soul = c.auth as Soul;
-      const ticket = issueTicket({ ...soul, level: level - 1 });
-      c.send('pardoned', { level: level - 1, ticket });
-    }
+    addFeed({ kind: 'pardon', name: soul.name, text: `đủ công đức, được ân xá lên tầng ${level - 1}` });
+    const ticket = issueTicket({ ...soul, level: level - 1 });
+    client.send('pardoned', { level: level - 1, ticket });
   }
 
   private rebirth(client: Client) {

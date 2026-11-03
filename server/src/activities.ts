@@ -38,12 +38,14 @@ class Mill extends Activity {
     if (dist(p, SPOTS.mill) <= REACH + 0.5) {
       this.room.broadcast('fx', { k: 'push', id: c.sessionId });
       this.room.addProgress(1);
+      this.room.credit(c, 1);
     } else if (dist(p, SPOTS.burner) <= REACH + 0.5) {
       const now = Date.now();
       if (now - (this.lastBurn.get(c.sessionId) ?? 0) < 1500) return;
       this.lastBurn.set(c.sessionId, now);
       this.room.broadcast('fx', { k: 'burn', id: c.sessionId });
       this.room.addProgress(3);
+      this.room.credit(c, 3);
     }
   }
 }
@@ -123,6 +125,7 @@ class Collect extends Activity {
         this.vel.delete(carrying);
         this.room.broadcast('fx', { k: 'burst', x: p.x, y: 2.5, z: p.z, c: 'gold' });
         this.room.addProgress(this.cfg.gain);
+        this.room.credit(c, this.cfg.gain);
         this.updateGoal();
       }
       return;
@@ -183,10 +186,13 @@ class Hazard extends Activity {
         const p = this.state.players.get(c.sessionId);
         if (!p || p.z > ARENA_Z) return; // đứng ở bãi an toàn thì không tính
         if (zones.some((o) => this.inZone(p, o))) this.room.strike(c, 'Trúng đòn! Quay về điểm xuất phát');
-        else safe++;
+        else {
+          safe++;
+          this.room.credit(c, 1);
+        }
       });
       if (safe) this.room.addProgress(safe);
-      this.state.goal = `Lượt ${this.round}: ${safe} hồn sống sót (+${safe})`;
+      this.state.goal = `Lượt ${this.round}: ${safe} hồn sống sót, mỗi hồn +1`;
     } else if (this.phase === 'strike' && this.t > 1.2) {
       this.phase = 'idle';
       this.t = 0;
@@ -209,6 +215,7 @@ class Climb extends Activity {
       this.room.broadcast('fx', { k: 'burst', x: g.x, y: g.y + 2, z: g.z, c: 'gold' });
       this.room.broadcast('fx', { k: 'bell' });
       this.room.addProgress(this.def.climb!.gain);
+      this.room.credit(c, this.def.climb!.gain);
       this.state.goal = `Đã có ${this.reached} lượt đến đích`;
       return;
     }
@@ -249,6 +256,12 @@ class Plates extends Activity {
     if (this.acc >= 0.5) {
       this.acc = 0;
       this.room.addProgress(all ? 1 : this.state.progress > 0 ? -1 : 0);
+      // ai đang đứng trước gương khi cả dãy gương sáng thì được cộng công đức
+      if (all)
+        this.room.clients.forEach((c) => {
+          const p = this.state.players.get(c.sessionId);
+          if (p && p.y < 1.6 && [...this.state.objects.values()].some((o) => dist(p, o) <= PLATE_R)) this.room.credit(c, 1);
+        });
     }
     this.state.goal = all ? `Cả ${total} tấm gương đều sáng — tội lỗi đang được soi rõ...` : `Gương sáng ${occ}/${total} — cần đủ người đứng trước gương`;
   }
@@ -290,7 +303,7 @@ class Whack extends Activity {
     }
     this.state.goal = `${a}/${total} đang bùng lên${a >= total - 2 ? ' — sắp mất kiểm soát!' : ''}`;
   }
-  onAct(_c: Client, p: Player) {
+  onAct(c: Client, p: Player) {
     let best: Obj | null = null, bd = WHACK_R + 0.5;
     this.state.objects.forEach((o) => {
       const d = dist(p, o);
@@ -299,6 +312,7 @@ class Whack extends Activity {
     const o = best as Obj | null;
     if (!o) return;
     o.hp = Math.max(0, o.hp - 1);
+    this.room.credit(c, 1);
     this.room.broadcast('fx', { k: 'burst', x: o.x, y: 2, z: o.z, c: 'white' });
     if (o.hp === 0) {
       o.s = 0;
@@ -335,6 +349,7 @@ class Push extends Activity {
     if (pushers >= Math.min(2, this.state.players.size)) {
       this.room.broadcast('fx', { k: 'push', id: c.sessionId });
       this.room.addProgress(1);
+      this.room.credit(c, 1);
     }
   }
   onLeave(id: string) { this.pushes.delete(id); }
@@ -373,6 +388,7 @@ class Rhythm extends Activity {
     this.streak++;
     this.room.broadcast('fx', { k: 'pound', x: near.x, z: near.z, id: c.sessionId });
     this.room.addProgress(this.hitThisBeat.size >= 2 ? 2 : 1);
+    this.room.credit(c, this.hitThisBeat.size >= 2 ? 2 : 1);
     this.state.goal = `Chuỗi đúng nhịp: ${this.streak} · ${this.hitThisBeat.size} hồn cùng nhịp`;
   }
 }
@@ -391,7 +407,7 @@ class Saw extends Activity {
         o.hp = (o.hp + 1) % 250;
         this.room.broadcast('fx', { k: 'burst', x: o.x, y: 1.6, z: o.z, c: 'gold' });
         this.room.addProgress(1);
-        void c;
+        this.room.credit(c, 1);
         return;
       }
     }
@@ -440,6 +456,7 @@ class Quiz extends Activity {
     this.t = QUIZ_TIME.reveal;
     this.state.objects.forEach((o) => (o.s = o.hp === this.ans ? 1 : 2));
     let right = 0;
+    const winners: Client[] = [];
     const n = this.room.clients.length;
     for (const c of this.room.clients) {
       const p = this.state.players.get(c.sessionId);
@@ -447,14 +464,17 @@ class Quiz extends Activity {
       const k = this.plateOf(p);
       if (k === this.ans) {
         right++;
+        winners.push(c);
         this.room.broadcast('fx', { k: 'burst', x: p.x, y: 1.5, z: p.z, c: 'gold' });
       } else if (k >= 0) this.room.strike(c, '👅 Khai gian! Ngưu Đầu kéo lưỡi', true);
       else c.send('hit', { msg: '🤐 Im lặng trước Phán Quan cũng là che giấu', soft: true });
     }
     const gain = right * 2 + (right === n && n > 0 ? 2 : 0);
     this.room.broadcast('fx', { k: 'bell' });
-    this.state.goal = right === n && n > 0 ? `Cả tầng khai thật! +${gain}` : `${right}/${n} hồn khai thật · +${gain}`;
+    const each = 2 + (right === n && n > 0 ? 2 : 0); // cả tầng cùng đúng thì mỗi người thêm +2
+    this.state.goal = right === n && n > 0 ? `Cả tầng khai thật! Mỗi hồn +${each}` : `${right}/${n} hồn khai thật · ai đúng +${each}`;
     this.room.addProgress(gain);
+    winners.forEach((c) => this.room.credit(c, each));
   }
   tick(dt: number) {
     if (this.room.clients.length === 0) {

@@ -30,7 +30,7 @@ function Judge() {
         <p className="sub">
           Hồn vừa lìa khỏi xác. Hắc Bạch Vô Thường sẽ dẫn bạn qua Quỷ Môn Quan, quỳ trước Diêm La Vương để bị tra hỏi. Khai thật hay khai gian, Gương Nghiệt đều soi thấy.
           <br />
-          Mười tám tầng địa ngục, mỗi tầng một tội. Cùng các vong hồn sám hối để được lên tầng trên. <b>Vi phạm 3 lần sẽ bị đày xuống tầng sâu hơn.</b> Qua hết tầng 1 thì tới cầu Nại Hà gặp Mạnh Bà.
+          Mười tám tầng địa ngục, mỗi tầng một tội. Cùng các vong hồn sám hối — ai làm nấy hưởng công đức, đủ công đức thì được lên tầng trên. <b>Vi phạm 3 lần sẽ bị đày xuống tầng sâu hơn.</b> Qua hết tầng 1 thì tới cầu Nại Hà gặp Mạnh Bà.
         </p>
         <form
           onSubmit={(e) => {

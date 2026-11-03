@@ -16,6 +16,7 @@ export interface NetPlayer {
   z: number;
   r: number;
   strikes: number;
+  merit: number;
 }
 
 export interface NetObj {
@@ -137,6 +138,10 @@ async function enterFloor(level: number, ticket: string) {
     fx.beatAt = performance.now() / 1000;
     sfx.drum();
   });
+  r.onMessage('notice', ({ msg }: { msg: string }) => {
+    toast(msg);
+    sfx.bell();
+  });
   r.onMessage('feed', (item: FeedItem) => pushFeed(item));
   r.onMessage('stats', (s: number[]) => G().set({ stats: s }));
 
@@ -156,7 +161,7 @@ async function enterFloor(level: number, ticket: string) {
   };
   r.onMessage('pardoned', ({ level: next, ticket: t }: { level: number; ticket: string }) => {
     sfx.pardon();
-    moveTo(next, t, `🎉 Cả tầng được ân xá! Bạn lên tầng ${next}`);
+    moveTo(next, t, `🎉 Bạn đã đủ công đức, được ân xá lên tầng ${next}!`);
   });
   r.onMessage('banished', ({ level: next, ticket: t, msg }: { level: number; ticket: string; msg: string }) => {
     sfx.banish();

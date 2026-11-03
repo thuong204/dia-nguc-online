@@ -8,15 +8,21 @@ import { fx, isTyping } from '../fx.ts';
 import { Feed } from './Feed.tsx';
 import { LETTERS } from '../../../shared/quiz.ts';
 
-function Strikes() {
-  const [n, setN] = useState(0);
+/** Công đức riêng + số lần vi phạm của chính mình (đọc thẳng từ schema). */
+function useMe() {
+  const [me, setMe] = useState({ merit: 0, strikes: 0 });
   useEffect(() => {
     const t = setInterval(() => {
-      const me = players.get(useGame.getState().myId);
-      setN(me?.strikes ?? 0);
-    }, 300);
+      const p = players.get(useGame.getState().myId);
+      const next = { merit: p?.merit ?? 0, strikes: p?.strikes ?? 0 };
+      setMe((m) => (m.merit === next.merit && m.strikes === next.strikes ? m : next));
+    }, 200);
     return () => clearInterval(t);
   }, []);
+  return me;
+}
+
+function Strikes({ n }: { n: number }) {
   return (
     <div className={n >= MAX_STRIKES - 1 ? 'strikes danger' : 'strikes'} title="Vi phạm 3 lần sẽ bị đày xuống tầng sâu hơn">
       ⛓️ Vi phạm {Array.from({ length: MAX_STRIKES }, (_, i) => (i < n ? '●' : '○')).join(' ')}
@@ -67,6 +73,7 @@ export function Hud() {
   const stats = useGame((s) => s.stats);
   const fading = useGame((s) => s.fading);
   const goal = useGame((s) => s.goal);
+  const me = useMe();
   const [sideOpen, setSideOpen] = useState(false);
   const chat = useRef<HTMLInputElement>(null);
 
@@ -105,11 +112,15 @@ export function Hud() {
         <div className="task">🎯 {f.def.task}</div>
         {goal && <div className="goal">{goal}</div>}
         <div className="prog-label">
-          <span>Tiến độ ân xá</span>
-          <span>{progress}/{need} → {level === 1 ? 'qua cầu Nại Hà' : `lên tầng ${level - 1}`}</span>
+          <span>🪷 Công đức của bạn</span>
+          <span>{me.merit}/{need} → {level === 1 ? 'qua cầu Nại Hà' : `lên tầng ${level - 1}`}</span>
         </div>
-        <div className="prog"><div className="prog-bar" style={{ width: `${(progress / need) * 100}%` }} /></div>
-        <Strikes />
+        <div className="prog"><div className="prog-bar" style={{ width: `${(me.merit / need) * 100}%` }} /></div>
+        <div className="prog-label shared">
+          <span>Cả tầng cùng làm: {progress}/{need}</span>
+          <span>ai làm nấy hưởng</span>
+        </div>
+        <Strikes n={me.strikes} />
       </header>
 
       <QuizPanel />

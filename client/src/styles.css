@@ -165,3 +165,4 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
   .dialog.diem .dialog-text { font-size: 17px; }
 }
 .tribunal ~ .mute { top: 16px; right: 16px; left: auto; bottom: auto; }
+.prog-label.shared { margin: 5px 0 0; font-size: 11px; opacity: 0.8; }
