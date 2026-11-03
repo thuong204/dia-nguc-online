@@ -201,7 +201,10 @@ async function enterFloor(level: number, ticket: string) {
   r.onMessage('stats', (s: number[]) => G().set({ stats: s }));
   r.onMessage('board', (b: BoardRow[]) => G().set({ board: b }));
 
+  let leaving = false; // đã nhận lệnh rời tầng — bỏ qua lệnh trùng
   const moveTo = async (next: number, t: string, msg: string) => {
+    if (leaving) return;
+    leaving = true;
     G().set({ fading: true });
     room = null;
     await r.leave();
@@ -220,6 +223,8 @@ async function enterFloor(level: number, ticket: string) {
     moveTo(next, t, `⛓️ Chịu đủ hình phạt — bị giải lên tầng ${next}!`);
   });
   r.onMessage('reborn', async ({ as }: { as: string }) => {
+    if (leaving) return;
+    leaving = true;
     room = null;
     await r.leave();
     sfx.pardon();

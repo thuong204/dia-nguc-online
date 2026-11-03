@@ -22,6 +22,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
   private timers = new Map<string, Delayed>();
   /** Hẹn giờ cưỡng chế áp giải nếu hồn không chịu nhận tội */
   private seize = new Map<string, Delayed>();
+  private released = new Set<string>();
 
   onCreate(options: { level: number }) {
     const level = Math.max(1, Math.min(FLOORS.length, Math.floor(num(options?.level, 1))));
@@ -92,6 +93,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     this.timers.delete(client.sessionId);
     this.seize.get(client.sessionId)?.clear();
     this.seize.delete(client.sessionId);
+    this.released.delete(client.sessionId);
   }
 
   onDispose() {
@@ -208,6 +210,9 @@ export class FloorRoom extends Room<{ state: FloorState }> {
 
   /** Hồn đồng ý đi tiếp: lên tầng trên, hoặc đầu thai nếu đang ở tầng 1. */
   private release(client: Client) {
+    // mạng chậm, bấm E nhiều lần → chỉ cho đi tiếp một lần (không phát nhiều vé / đầu thai nhiều lần)
+    if (this.released.has(client.sessionId)) return;
+    this.released.add(client.sessionId);
     const level = this.state.level;
     const soul = client.auth as Soul;
     notePardon(soul, level, level === 1);

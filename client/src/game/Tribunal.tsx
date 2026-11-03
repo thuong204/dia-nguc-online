@@ -121,6 +121,7 @@ export default function Tribunal() {
   const input = useRef<HTMLInputElement>(null);
   const room = useRef<Room | null>(null);
   const lastN = useRef(0);
+  const going = useRef(false); // đã bắt đầu xuống tầng — vé chỉ dùng được một lần, không được gọi lại
 
   // vào điện
   useEffect(() => {
@@ -174,7 +175,10 @@ export default function Tribunal() {
   }, [verdict]);
 
   async function descend() {
-    if (!verdict || busy) return;
+    // dùng ref chứ không dùng state `busy`: hẹn giờ 9s giữ closure cũ (busy=false), mạng chậm thì
+    // bấm nút xong vẫn chưa vào tầng kịp → hẹn giờ gọi lại với cùng vé → server báo vé không hợp lệ
+    if (!verdict || going.current) return;
+    going.current = true;
     setBusy(true);
     try {
       useGame.getState().set({ soulId: verdict.id });
