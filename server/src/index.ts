@@ -35,6 +35,8 @@ const gameServer = new Server({
       res.json(body);
     });
 
+    app.get('/healthz', (_req, res) => res.send('ok'));
+
     app.get('/api/overview', (_req, res) => {
       res.json({ floors: FLOORS.map(({ keywords, ...f }) => f), feed, stats: stats() });
     });

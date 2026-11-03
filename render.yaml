@@ -1,0 +1,12 @@
+# Blueprint cho Render: một dịch vụ web chạy cả server game (Colyseus) lẫn client đã build.
+services:
+  - type: web
+    name: dia-nguc-online
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
