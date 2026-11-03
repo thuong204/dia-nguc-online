@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { FLOORS } from '../../shared/game.ts';
 import { devJump, fetchOverview } from './net.ts';
 import { ambience, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
-import { useGame } from './store.ts';
+import { toast, useGame } from './store.ts';
 import { Feed } from './ui/Feed.tsx';
 import { Leaderboard } from './ui/Leaderboard.tsx';
 import { Hud } from './ui/Hud.tsx';
+import { canFullscreen, enterFullscreen, exitFullscreen, isFullscreen, isStandalone, isTouch, onFullscreenChange } from './ui/fullscreen.ts';
 
 const Game = lazy(() => import('./game/Game.tsx'));
 const Tribunal = lazy(() => import('./game/Tribunal.tsx'));
@@ -41,6 +42,7 @@ function Judge() {
             } catch {
               /* bỏ qua */
             }
+            if (isTouch() && canFullscreen()) enterFullscreen(); // điện thoại: vào toàn màn hình, xoay ngang luôn
             useGame.getState().set({ soulName: name.trim().slice(0, 18) || 'Hồn Vô Danh', screen: 'tribunal' });
           }}
         >
@@ -138,6 +140,54 @@ function MuteButton() {
   );
 }
 
+const IOS_TIP = 'iPhone: bấm nút Chia sẻ ⬆️ → “Thêm vào MH chính”, mở từ biểu tượng để chơi toàn màn hình, rồi xoay ngang máy.';
+
+function FullscreenButton() {
+  const [fs, setFs] = useState(isFullscreen());
+  useEffect(() => onFullscreenChange(() => setFs(isFullscreen())), []);
+  if (isStandalone()) return null;
+  return (
+    <button
+      className="fs"
+      onClick={() => {
+        if (!canFullscreen()) return toast(IOS_TIP);
+        if (fs) exitFullscreen();
+        else enterFullscreen();
+      }}
+      aria-label={fs ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+      title={fs ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+    >
+      {fs ? '🗗' : '⛶'}
+    </button>
+  );
+}
+
+/** Điện thoại cầm dọc: nhắc xoay ngang cho dễ chơi */
+function RotateHint() {
+  const [portrait, setPortrait] = useState(false);
+  const [skip, setSkip] = useState(false);
+  useEffect(() => {
+    const mq = matchMedia('(orientation: portrait) and (pointer: coarse)');
+    const f = () => setPortrait(mq.matches);
+    f();
+    mq.addEventListener('change', f);
+    return () => mq.removeEventListener('change', f);
+  }, []);
+  if (!portrait || skip) return null;
+  return (
+    <div className="rotate-hint">
+      <div className="rotate-phone">📱</div>
+      <p>Xoay ngang điện thoại để chơi dễ hơn</p>
+      {canFullscreen() ? (
+        <button className="primary" onClick={() => enterFullscreen()}>⛶ Toàn màn hình &amp; xoay ngang</button>
+      ) : (
+        !isStandalone() && <p className="small">{IOS_TIP}</p>
+      )}
+      <button className="link" onClick={() => setSkip(true)}>Vẫn chơi màn dọc</button>
+    </div>
+  );
+}
+
 export default function App() {
   const screen = useGame((s) => s.screen);
   const toastMsg = useGame((s) => s.toast);
@@ -162,6 +212,8 @@ export default function App() {
         </Suspense>
       )}
       <MuteButton />
+      <FullscreenButton />
+      {(inGame || screen === 'tribunal') && <RotateHint />}
       {toastMsg && (
         <div className="toast" onClick={() => useGame.getState().set({ toast: null })} title="Bấm để đóng">
           {toastMsg}

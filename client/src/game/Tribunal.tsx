@@ -202,6 +202,16 @@ export default function Tribunal() {
     if (answering) input.current?.focus();
   }, [answering, line?.n]);
   const who = line?.who ?? null;
+  // nút ✕ thu gọn hàng chờ / khung lời thoại (tới lượt mình khai hoặc có phán quyết thì tự mở lại)
+  const [queueMin, setQueueMin] = useState(false);
+  const [dialogMin, setDialogMin] = useState(false);
+  const mustSee = answering || !!verdict;
+  useEffect(() => {
+    if (mustSee) setDialogMin(false);
+  }, [mustSee]);
+  const closeX = (f: () => void) => (
+    <button type="button" className="close-x" onClick={f} aria-label="Thu gọn">✕</button>
+  );
   const vf = verdict ? FLOORS[verdict.level - 1] : null;
 
   return (
@@ -210,7 +220,11 @@ export default function Tribunal() {
         <Scene ids={ids} myId={myId} />
       </div>
 
+      {queueMin ? (
+        <button className="pill hall-pill" onClick={() => setQueueMin(false)}>⚖️ Hàng chờ · {queue.length} hồn{myPos > 0 ? ` · bạn #${myPos + 1}` : ''} ▾</button>
+      ) : (
       <aside className="hall-queue">
+        {closeX(() => setQueueMin(true))}
         <h3>⚖️ Chánh Điện · Sâm La Điện</h3>
         <p className="small">Các oan hồn quỳ chờ. Lần lượt từng người lên trước án khai tội, Diêm Vương phán tầng theo mức độ tội.</p>
         <ol>
@@ -224,8 +238,11 @@ export default function Tribunal() {
         </ol>
         {!verdict && myPos > 0 && !mine && <p className="small">Còn {myPos} hồn nữa mới tới lượt bạn. Hãy quỳ đợi…</p>}
       </aside>
+      )}
 
-      {verdict && vf ? (
+      {dialogMin && !mustSee ? (
+        <button className="pill dialog-pill" onClick={() => setDialogMin(false)}>💬 {who && who !== 'me' ? NAMES[who as Speaker] : 'Lời thoại'} ▴</button>
+      ) : verdict && vf ? (
         <div className="dialog verdict">
           <div className="dialog-name">Phán quyết</div>
           <div className="dialog-text">
@@ -238,6 +255,7 @@ export default function Tribunal() {
         </div>
       ) : line ? (
         <div className={`dialog ${who === 'me' ? 'me' : who}`}>
+          {!mustSee && closeX(() => setDialogMin(true))}
           <div className="dialog-name">{who === 'me' ? line.name : NAMES[who as Speaker]}</div>
           <div className="dialog-text">{who === 'me' ? `“${line.text}”` : line.text}</div>
           {line.opts && (mine ? (
@@ -257,6 +275,7 @@ export default function Tribunal() {
         </div>
       ) : (
         <div className="dialog">
+          {closeX(() => setDialogMin(true))}
           <div className="dialog-text">{ids.length ? 'Hắc Bạch Vô Thường đang áp giải hồn kế tiếp…' : 'Đang vào Chánh Điện…'}</div>
         </div>
       )}

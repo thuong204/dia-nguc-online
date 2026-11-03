@@ -267,3 +267,99 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
 @media (max-width: 760px) {
   .hall-queue { max-height: 30vh; }
 }
+
+/* ================= Điện thoại: toàn màn hình, xoay ngang, chừa tai thỏ ================= */
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+body { touch-action: manipulation; }
+.game, .tribunal { height: 100dvh; }
+
+/* nút toàn màn hình — nằm cạnh nút loa */
+.fs { position: fixed; z-index: 60; left: 66px; bottom: 16px; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: #120505d0; color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
+.game ~ .fs { left: auto; right: 66px; bottom: 16px; }
+.tribunal ~ .fs { top: 16px; right: 66px; left: auto; bottom: auto; }
+
+/* nhắc xoay ngang */
+.rotate-hint { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; background: #0a0203f2; color: var(--text); }
+.rotate-hint p { margin: 0; font-weight: 700; }
+.rotate-hint .primary { width: auto; padding: 13px 22px; }
+.rotate-hint .small { max-width: 320px; line-height: 1.5; }
+.rotate-hint .link { background: none; border: 0; color: var(--muted); text-decoration: underline; margin-top: 4px; }
+.rotate-phone { font-size: 64px; animation: rotate-me 1.8s ease-in-out infinite; }
+@keyframes rotate-me { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+
+@media (pointer: coarse) {
+  .mute, .game ~ .mute { top: calc(70px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); left: auto; bottom: auto; }
+  .fs, .game ~ .fs, .tribunal ~ .fs { top: calc(70px + env(safe-area-inset-top)); right: calc(66px + env(safe-area-inset-right)); left: auto; bottom: auto; }
+  .judge ~ .mute, .judge ~ .fs { top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .judge ~ .mute { right: 16px; }
+  .judge ~ .fs { right: 66px; }
+  .hud-top { top: calc(16px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); }
+  .side-toggle { top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); }
+  .joystick { left: calc(20px + env(safe-area-inset-left)); }
+  .hud-bottom { bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+
+/* màn ngang thấp (điện thoại xoay ngang): mọi thứ gọn lại, nhường chỗ cho cảnh 3D */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .judge { padding-top: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); }
+  .judge .sub { font-size: 13px; line-height: 1.45; }
+  h1 { font-size: 24px; }
+  .seal { width: 44px; height: 44px; font-size: 24px; margin-bottom: 6px; }
+
+  .hud-top { top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); width: min(340px, 42vw); padding: 7px 34px 7px 11px; border-radius: 11px; }
+  .floor-title { font-size: 13px; }
+  .han { font-size: 12px; }
+  .floor-pun { display: none; }
+  .task { font-size: 11px; margin: 2px 0 4px; }
+  .prog { height: 7px; }
+  .prog-label { font-size: 10px; }
+  .close-x { width: 24px; height: 24px; font-size: 11px; top: 4px; right: 4px; }
+  .top-pill { top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); padding: 6px 11px; font-size: 12px; }
+
+  .side-toggle { top: calc(8px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); width: 38px; height: 38px; font-size: 17px; }
+  .mute, .game ~ .mute, .fs, .game ~ .fs, .tribunal ~ .fs, .tribunal ~ .mute { top: calc(8px + env(safe-area-inset-top)); width: 38px; height: 38px; font-size: 16px; bottom: auto; left: auto; }
+  .mute, .game ~ .mute, .tribunal ~ .mute { right: calc(56px + env(safe-area-inset-right)); }
+  .fs, .game ~ .fs, .tribunal ~ .fs { right: calc(102px + env(safe-area-inset-right)); }
+  .tribunal ~ .mute { right: calc(10px + env(safe-area-inset-right)); }
+  .tribunal ~ .fs { right: calc(56px + env(safe-area-inset-right)); }
+  .side { top: calc(54px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); max-height: calc(100dvh - 70px); overflow: auto; width: min(290px, 45vw); }
+
+  .joystick { left: calc(14px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 112px; height: 112px; }
+  .joystick .knob { width: 48px; height: 48px; margin: -24px 0 0 -24px; }
+  .hud-bottom { left: calc(140px + env(safe-area-inset-left)); right: calc(12px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; text-align: right; }
+  .actions { padding-left: 0; flex-wrap: nowrap; align-items: flex-end; justify-content: flex-end; }
+  .chat { flex: 0 1 240px; margin-left: 0; order: -1; align-self: flex-end; }
+  .chat input { padding: 8px 10px; font-size: 13px; }
+  .act.jump { width: 64px; height: 64px; font-size: 11px; }
+  .act.use { width: 86px; height: 86px; font-size: 12px; }
+  .hint { margin: 0 0 6px; font-size: 12px; padding: 5px 11px; }
+  .touch-tip { display: none; }
+  .toast { top: calc(8px + env(safe-area-inset-top)); padding: 8px 14px; font-size: 13px; max-width: 60vw; }
+
+  /* Điện Sâm La */
+  .hall-queue { top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); width: min(230px, 32vw); max-height: 42vh; padding: 8px 10px; }
+  .hall-queue h3 { font-size: 13px; }
+  .hall-queue ol { font-size: 12px; margin-top: 4px; }
+  .tribunal .dialog { bottom: calc(56px + env(safe-area-inset-bottom)); padding: 10px 14px 8px; width: min(680px, calc(100% - 40px)); max-height: 46vh; overflow: auto; }
+  .dialog-text, .dialog.diem .dialog-text { font-size: 14px; min-height: 0; }
+  .dialog-name { font-size: 12px; margin: -22px 0 6px; }
+  .dialog-answer .chips button { padding: 5px 10px; font-size: 12px; }
+  .hall-input { bottom: calc(8px + env(safe-area-inset-bottom)); width: min(680px, calc(100% - 40px)); }
+  .hall-input input { padding: 8px 12px; }
+
+  /* chịu hình: khung phim mỏng hơn */
+  .cine-bar, .pain-box { height: 14vh; }
+  .pain-box { min-height: 0; }
+  .pain-what { font-size: 14px; }
+}
+
+/* Chánh Điện: nút ✕ thu gọn hàng chờ & khung lời thoại (mọi màn hình) */
+.tribunal .close-x { display: block; }
+.tribunal .hall-queue { padding-right: 38px; }
+.tribunal .dialog { padding-right: 40px; }
+.hall-pill { top: calc(16px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); max-width: calc(100% - 140px); }
+.dialog-pill { left: 50%; transform: translateX(-50%); bottom: calc(78px + env(safe-area-inset-bottom)); }
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .hall-pill { top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); padding: 6px 11px; font-size: 12px; }
+  .dialog-pill { bottom: calc(56px + env(safe-area-inset-bottom)); padding: 6px 11px; font-size: 12px; }
+}

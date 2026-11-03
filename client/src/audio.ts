@@ -34,7 +34,7 @@ function ctx() {
       return null;
     }
   }
-  if (ac.state === 'suspended') ac.resume().catch(() => {});
+  if (ac.state === 'suspended' && !muted) ac.resume().catch(() => {});
   return ac;
 }
 
@@ -48,6 +48,13 @@ if (typeof window !== 'undefined') {
   addEventListener('keydown', unlock);
 }
 
+// Khi sửa code lúc dev, Vite nạp lại module: đóng bộ âm thanh cũ để không còn nhạc "ma" phát mãi
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  amb?.stop();
+  ac?.close().catch(() => {});
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+});
+
 export const isMuted = () => muted;
 export function setMuted(m: boolean) {
   muted = m;
@@ -56,8 +63,13 @@ export function setMuted(m: boolean) {
   } catch {
     /* bỏ qua */
   }
-  if (master && ac) master.gain.setTargetAtTime(m ? 0 : 0.8, ac.currentTime, 0.05);
-  if (m) speechSynthesis?.cancel();
+  if (master && ac) {
+    master.gain.setTargetAtTime(m ? 0 : 0.8, ac.currentTime, 0.05);
+    // dừng hẳn bộ âm thanh khi tắt (chắc chắn im lặng), bật lại thì chạy tiếp
+    if (m) setTimeout(() => muted && ac?.suspend().catch(() => {}), 150);
+    else ac.resume().then(() => pendingAmb !== null && ambience(pendingAmb)).catch(() => {});
+  }
+  if (m && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
   listeners.forEach((f) => f(m));
 }
 export const onMuteChange = (f: (m: boolean) => void) => {
@@ -257,6 +269,72 @@ export function plead(text?: string) {
   speechSynthesis.speak(u);
 }
 
+/* ---------- Âm thanh ghi âm thật (client/public/sfx, nguồn & giấy phép: CREDITS.md) ---------- */
+const SAMPLES = {
+  scream: ['scream1', 'scream2', 'scream3', 'scream4', 'scream5', 'scream6', 'scream7'],
+  cry: ['cry1', 'cry2', 'cry3', 'cry4', 'cry5', 'cry6', 'cry7', 'cry8', 'cry9'],
+  moan: ['moan1'],
+  thunder: ['thunder1', 'thunder2', 'thunder3', 'thunder4'],
+} as const;
+type Bank = keyof typeof SAMPLES;
+const bufs = new Map<string, AudioBuffer>();
+const pending = new Map<string, Promise<AudioBuffer | null>>();
+/** Tải & giải mã một file trong /sfx (mỗi file một lần) */
+function load(name: string): Promise<AudioBuffer | null> {
+  const a = ctx();
+  if (!a) return Promise.resolve(null);
+  let p = pending.get(name);
+  if (!p) {
+    p = fetch(`/sfx/${name}.mp3`)
+      .then((r) => r.arrayBuffer())
+      .then((b) => a.decodeAudioData(b))
+      .then((buf) => (bufs.set(name, buf), buf))
+      .catch(() => null);
+    pending.set(name, p);
+  }
+  return p;
+}
+let voicesLoaded = false;
+function loadSamples() {
+  if (voicesLoaded) return;
+  voicesLoaded = true;
+  Object.values(SAMPLES).flat().forEach((n) => load(n));
+}
+const lastPick = new Map<Bank, string>();
+
+/** Phát một đoạn ghi âm ngẫu nhiên trong nhóm; trả về false nếu chưa tải xong (để dùng tiếng tổng hợp thay). */
+function sample(bank: Bank, vol: number, far = false, rate = 1) {
+  const a = ctx();
+  if (!a || !master) return false;
+  loadSamples();
+  const names = SAMPLES[bank].filter((n) => bufs.has(n) && (SAMPLES[bank].length < 2 || n !== lastPick.get(bank)));
+  if (!names.length) return false;
+  const n = names[Math.floor(Math.random() * names.length)];
+  lastPick.set(bank, n);
+  const src = a.createBufferSource();
+  src.buffer = bufs.get(n)!;
+  src.playbackRate.value = rate * (0.92 + Math.random() * 0.16); // đổi cao độ chút cho đỡ lặp
+  const g = a.createGain();
+  g.gain.value = vol;
+  const pan = a.createStereoPanner();
+  pan.pan.value = far ? Math.random() * 1.6 - 0.8 : 0;
+  let node: AudioNode = src.connect(g);
+  if (far) {
+    const lp = a.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    node = node.connect(lp);
+  }
+  node.connect(pan);
+  const dry = a.createGain(), wet = a.createGain();
+  dry.gain.value = far ? 0.35 : 1;
+  wet.gain.value = far ? 0.8 : 0.25;
+  pan.connect(dry).connect(master);
+  if (verb) pan.connect(wet).connect(verb);
+  src.start();
+  return true;
+}
+
 export const sfx = {
   gong() {
     [73, 110, 147, 196, 277].forEach((f, i) => tone(f, 4.5 - i * 0.5, 0.28 / (i + 1), 'sine'));
@@ -322,6 +400,7 @@ export const sfx = {
   /* ---- tiếng hành hình ---- */
   /** Tiếng thét xé họng: vọt cao, rè khàn, rung giọng, tắt dần thành tiếng nấc */
   scream(vol = 1, far = false) {
+    if (sample('scream', 0.9 * vol, far)) return;
     const f0 = rnd(520, 820), dur = rnd(1.3, 2.1);
     vocal({ f0, dur, vol: 0.34 * vol, vowel: Math.random() < 0.5 ? 'a' : 'e', rough: true, vib: 0.07, breath: 0.25, far,
       pitch: [[0, 0.8], [0.12, 1.25], [0.5, 1.1], [0.8, 0.85], [1, 0.55]] });
@@ -331,6 +410,7 @@ export const sfx = {
   },
   /** Khóc nấc: từng tiếng "hu… hu…" rơi xuống, xen hít vào giật cục */
   sob(vol = 1, far = false) {
+    if (sample('cry', 0.85 * vol, far)) return;
     const f0 = rnd(300, 420), n = 3 + Math.floor(Math.random() * 4);
     let at = 0;
     for (let i = 0; i < n; i++) {
@@ -345,12 +425,14 @@ export const sfx = {
   },
   /** Khóc than kéo dài, ai oán */
   wail(vol = 1, far = false) {
+    if (sample('cry', 0.85 * vol, far, 0.9)) return;
     const f0 = rnd(380, 560);
     vocal({ f0, dur: rnd(2.2, 3.4), vol: 0.2 * vol, vowel: Math.random() < 0.5 ? 'o' : 'u', vib: 0.06, breath: 0.2, far,
       pitch: [[0, 0.9], [0.2, 1.15], [0.45, 1], [0.6, 1.12], [1, 0.62]] });
   },
   /** Rên rỉ trầm, đau đớn */
   moan(vol = 1, far = false) {
+    if (Math.random() < 0.6 ? sample('moan', 0.8 * vol, far, 0.85) : sample('cry', 0.7 * vol, far, 0.8)) return;
     const f0 = rnd(110, 170);
     vocal({ f0, dur: rnd(1.6, 2.6), vol: 0.3 * vol, vowel: 'o', rough: Math.random() < 0.5, vib: 0.05, breath: 0.15, far,
       pitch: [[0, 1], [0.3, 1.18], [1, 0.8]] });
@@ -401,7 +483,7 @@ export const sfx = {
   },
 };
 
-/* ---------- Nhạc nền u ám, mỗi tầng một sắc ---------- */
+/* ---------- Nhạc nền u ám (ghi âm thật), mỗi tầng một sắc ---------- */
 let amb: { stop: () => void } | null = null;
 let pendingAmb: number | null = null;
 
@@ -412,83 +494,74 @@ export function ambience(level: number) {
   if (!a || !master || a.state !== 'running') return;
   pendingAmb = null;
   amb?.stop();
+  let alive = true;
   const out = a.createGain();
   out.gain.setValueAtTime(0.0001, a.currentTime);
-  out.gain.exponentialRampToValueAtTime(level === 0 ? 0.7 : 0.55, a.currentTime + 2.5);
+  out.gain.exponentialRampToValueAtTime(1, a.currentTime + 3);
   out.connect(master);
   const nodes: AudioScheduledSourceNode[] = [];
 
-  // Tiếng ù trầm: hai sóng lệch nhau tạo cảm giác rung rợn
-  const base = level === 0 ? 41 : [55, 49, 46, 52, 58, 44, 62, 39, 47, 51, 43, 57, 36, 33, 48, 65, 40, 37][level - 1];
-  // Loa laptop/điện thoại không phát được tần số quá trầm → dùng dải 130–500 Hz
-  const lp = a.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = level === 8 ? 1400 : 900;
-  lp.connect(out);
-  const root = base * 4;
-  [1, 1.006, 1.5, 2.0, 2.38].forEach((m, i) => {
-    const o = a.createOscillator();
-    o.type = i < 2 ? 'sawtooth' : 'triangle';
-    o.frequency.value = root * m;
-    const g = a.createGain();
-    g.gain.value = [0.07, 0.07, 0.05, 0.035, 0.02][i];
-    // âm lượng phập phồng chậm cho rợn
-    const trem = a.createOscillator();
-    trem.frequency.value = 0.08 + i * 0.03;
-    const tg = a.createGain();
-    tg.gain.value = g.gain.value * 0.6;
-    trem.connect(tg).connect(g.gain);
-    trem.start();
-    o.connect(g).connect(lp);
-    o.start();
-    nodes.push(o, trem);
+  /** Phát lặp một file nền */
+  const loop = (name: string, vol: number, rate = 1, lowpass = 0) =>
+    load(name).then((buf) => {
+      if (!buf || !alive) return;
+      const src = a.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.playbackRate.value = rate;
+      const g = a.createGain();
+      g.gain.value = vol;
+      let n: AudioNode = src;
+      if (lowpass) {
+        const lp = a.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = lowpass;
+        n = src.connect(lp);
+      }
+      n.connect(g).connect(out);
+      src.start(a.currentTime, Math.random() * buf.duration);
+      nodes.push(src);
+    });
+
+  if (level === 0) {
+    loop('bed0', 0.55); // Điện Sâm La: không khí rờn rợn, tĩnh
+    loop('wind', 0.15, 0.9, 1200);
+  } else {
+    // xen kẽ hai bản nhạc nền; tầng càng sâu càng trầm
+    const rate = 1 - ((level - 1) / 17) * 0.12;
+    loop(level % 2 ? 'bed1' : 'bed2', 0.6, rate);
+    loop('wind', level === 8 ? 0.55 : 0.28, 0.95 + (level % 3) * 0.04, level === 8 ? 0 : 2500); // núi băng gió rít mạnh
+  }
+  loadSamples();
+
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const every = (min: number, max: number, f: () => void) => {
+    const tick = () => {
+      timers.push(setTimeout(() => {
+        if (!alive) return;
+        if (!muted) f();
+        tick();
+      }, rnd(min, max)));
+    };
+    tick();
+  };
+  // sấm rền xa
+  every(level === 0 ? 30000 : 14000, level === 0 ? 60000 : 32000, () => sample('thunder', level === 0 ? 0.35 : 0.6, true));
+  // văng vẳng tiếng vong hồn khóc than, rên rỉ, gào thét
+  every(level === 0 ? 6000 : 4000, level === 0 ? 12000 : 9000, () => {
+    if (level === 0) Math.random() < 0.6 ? sfx.sob(0.45, true) : sfx.moan(0.45, true);
+    else sfx.cry(rnd(0.45, 0.8), true);
   });
-
-  // Gió âm phủ: tiếng ồn lọc dải, tần số trôi chậm
-  const w = noise(a);
-  w.loop = true;
-  const bp = a.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.Q.value = 0.8;
-  bp.frequency.value = 900;
-  const lfo = a.createOscillator();
-  lfo.frequency.value = 0.07;
-  const lfoG = a.createGain();
-  lfoG.gain.value = 600;
-  lfo.connect(lfoG).connect(bp.frequency);
-  const wg = a.createGain();
-  wg.gain.value = level === 8 ? 0.55 : 0.3; // núi băng gió rít mạnh hơn
-  w.connect(bp).connect(wg).connect(out);
-  w.start();
-  lfo.start();
-  nodes.push(w, lfo);
-
-  // Thỉnh thoảng một tiếng chuông xa / xích loảng xoảng
-  const timer = setInterval(() => {
+  // thỉnh thoảng chuông xa / xích loảng xoảng
+  every(9000, 16000, () => {
     if (Math.random() < 0.5) [440, 660].forEach((f, i) => tone(f * (0.5 + Math.random() * 0.2), 3, 0.025 / (i + 1)));
     else if (level !== 0) for (let i = 0; i < 4; i++) burst(0.06, 0.05, 'highpass', 4000, i * 0.08, 3);
-  }, 9000);
-
-  // Văng vẳng khắp nơi: tiếng khóc than, rên rỉ, gào thét của các vong hồn
-  let cryT: ReturnType<typeof setTimeout>;
-  const cryLoop = () => {
-    cryT = setTimeout(() => {
-      if (!muted) {
-        if (level === 0) Math.random() < 0.6 ? sfx.sob(0.5, true) : sfx.moan(0.5, true); // trong điện: khóc lóc thút thít
-        else {
-          sfx.cry(rnd(0.5, 0.9), true);
-          if (Math.random() < 0.25) setTimeout(() => sfx.cry(rnd(0.4, 0.7), true), rnd(400, 1400)); // nhiều hồn cùng kêu
-        }
-      }
-      cryLoop();
-    }, level === 0 ? rnd(4000, 8000) : rnd(2200, 5500));
-  };
-  cryLoop();
+  });
 
   amb = {
     stop() {
-      clearInterval(timer);
-      clearTimeout(cryT);
+      alive = false;
+      timers.forEach(clearTimeout);
       const t = a.currentTime;
       out.gain.cancelScheduledValues(t);
       out.gain.setValueAtTime(out.gain.value, t);

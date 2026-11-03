@@ -1,0 +1,10 @@
+{
+  "name": "Địa Ngục Online",
+  "short_name": "Địa Ngục",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0606",
+  "theme_color": "#0d0606",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
