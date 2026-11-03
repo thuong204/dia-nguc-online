@@ -43,6 +43,7 @@ export function Player() {
   // Kéo chuột xoay camera, bấm (không kéo) để đi tới, cuộn để zoom
   useEffect(() => {
     const el = gl.domElement;
+    el.style.touchAction = 'none'; // vuốt trên màn hình 3D chỉ để xoay camera, không cuộn trang
     let down: { x: number; y: number; lx: number; ly: number; drag: boolean } | null = null;
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false };
@@ -101,6 +102,11 @@ export function Player() {
       if (keys.left) ix -= 1;
       if (keys.right) ix += 1;
     }
+    const joyLen = Math.hypot(fx.joy.x, fx.joy.y);
+    if (joyLen > 0.15) {
+      ix = fx.joy.x;
+      iz = -fx.joy.y;
+    }
     const yaw = cam.current.yaw;
     let dx = -Math.sin(yaw) * iz + Math.cos(yaw) * ix;
     let dz = -Math.cos(yaw) * iz - Math.sin(yaw) * ix;
@@ -114,7 +120,7 @@ export function Player() {
       }
     }
     const len = Math.hypot(dx, dz);
-    const speed = keys.run && !typing ? 10 : 6;
+    const speed = (keys.run && !typing) || joyLen > 0.9 ? 10 : 6;
     const lv = b.linvel();
     const k = 1 - Math.exp(-12 * dt);
     const vx = len ? (dx / len) * speed : 0, vz = len ? (dz / len) * speed : 0;

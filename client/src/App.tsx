@@ -151,7 +151,11 @@ export default function App() {
         </Suspense>
       )}
       <MuteButton />
-      {toastMsg && <div className="toast">{toastMsg}</div>}
+      {toastMsg && (
+        <div className="toast" onClick={() => useGame.getState().set({ toast: null })} title="Bấm để đóng">
+          {toastMsg}
+        </div>
+      )}
     </>
   );
 }

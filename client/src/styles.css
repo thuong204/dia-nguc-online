@@ -166,3 +166,37 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
 }
 .tribunal ~ .mute { top: 16px; right: 16px; left: auto; bottom: auto; }
 .prog-label.shared { margin: 5px 0 0; font-size: 11px; opacity: 0.8; }
+
+/* nút ✕ thu gọn khung — chỉ hiện trên điện thoại */
+.close-x { display: none; position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: #000a; color: var(--text); font-size: 14px; line-height: 1; cursor: pointer; pointer-events: auto; z-index: 2; }
+.pill { position: absolute; z-index: 5; padding: 8px 14px; border-radius: 99px; border: 1px solid var(--fire); background: #120505e0; color: var(--text); font: 700 13px 'Be Vietnam Pro', sans-serif; cursor: pointer; box-shadow: 0 4px 14px #0008; }
+.top-pill { top: 16px; left: 16px; max-width: calc(100% - 90px); }
+.quiz-pill { left: 16px; bottom: 150px; color: var(--gold); }
+.toast { cursor: pointer; }
+@media (max-width: 900px) {
+  .close-x { display: block; }
+  .hud-top { padding-right: 40px; }
+  .quiz { pointer-events: auto; padding-top: 14px; }
+  .side .close-x { top: -10px; right: -6px; background: #120505; }
+}
+
+/* điều khiển cảm ứng */
+.joystick { display: none; position: absolute; z-index: 6; left: 20px; bottom: 96px; width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle, #ffffff10, #ffffff22); border: 2px solid #ffffff33; touch-action: none; user-select: none; -webkit-user-select: none; }
+.joystick .knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffcf8a, #d9381e); box-shadow: 0 4px 14px #0009; pointer-events: none; }
+.act { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.touch-tip { display: none; }
+@media (max-width: 900px), (pointer: coarse) {
+  .joystick { display: block; }
+  .touch-tip { display: block; }
+  .tip:not(.touch-tip) { display: none; }
+  .hud-bottom { width: calc(100% - 32px); }
+  .actions { padding-left: 150px; justify-content: flex-end; }
+  .act.use, .act.jump { flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%; padding: 0; font-size: 13px; }
+  .act.use { width: 104px; height: 104px; font-size: 15px; }
+  .act.use.ready { animation: pulse 0.7s infinite alternate; }
+  .chat { flex: 1 1 100%; margin-left: -150px; }
+  .hint { margin-left: 150px; }
+  .quiz { bottom: 250px; }
+  .quiz-pill { bottom: 250px; }
+  .mute, .game ~ .mute { top: 70px; right: 16px; left: auto; bottom: auto; }
+}

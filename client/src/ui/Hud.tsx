@@ -6,6 +6,7 @@ import { sfx } from '../audio.ts';
 import { useGame } from '../store.ts';
 import { fx, isTyping } from '../fx.ts';
 import { Feed } from './Feed.tsx';
+import { Joystick } from './Joystick.tsx';
 import { LETTERS } from '../../../shared/quiz.ts';
 
 /** Công đức riêng + số lần vi phạm của chính mình (đọc thẳng từ schema). */
@@ -35,13 +36,23 @@ function QuizPanel() {
   const qz = useGame((s) => s.quiz);
   const phase = qz?.phase;
   const left = qz?.left ?? 0;
+  const [min, setMin] = useState(false);
+  const n = qz?.n;
   useEffect(() => {
     if (phase === 'ask' && left > 0 && left <= 3) sfx.countdown();
   }, [phase, left]);
+  useEffect(() => setMin(false), [n]); // câu hỏi mới thì tự mở lại
   if (!qz || qz.phase === 'wait') return null;
   const reveal = qz.phase === 'reveal';
+  if (min)
+    return (
+      <button className="pill quiz-pill" onClick={() => setMin(false)}>
+        ⚖️ Câu {qz.n} · {reveal ? `Đáp án ${LETTERS[qz.ans]}` : `${qz.left}s`} ▸
+      </button>
+    );
   return (
     <div className={reveal ? 'quiz reveal' : 'quiz'}>
+      <button className="close-x" onClick={() => setMin(true)} aria-label="Thu gọn câu hỏi">✕</button>
       <div className="quiz-head">
         <span>⚖️ Phán Quan hỏi · Câu {qz.n}</span>
         <span className={!reveal && qz.left <= 3 ? 'quiz-time hurry' : 'quiz-time'}>{reveal ? 'Đáp án' : `${qz.left}s`}</span>
@@ -65,6 +76,18 @@ function interact() {
   send('act');
 }
 
+/** Giữ nút Tương tác là tự bấm liên tục (server giới hạn ~9 lần/giây). */
+let holdTimer: ReturnType<typeof setInterval> | undefined;
+function holdStart(e: React.PointerEvent) {
+  e.preventDefault();
+  interact();
+  clearInterval(holdTimer);
+  holdTimer = setInterval(interact, 130);
+}
+function holdEnd() {
+  clearInterval(holdTimer);
+}
+
 export function Hud() {
   const level = useGame((s) => s.level);
   const progress = useGame((s) => s.progress);
@@ -74,6 +97,7 @@ export function Hud() {
   const fading = useGame((s) => s.fading);
   const goal = useGame((s) => s.goal);
   const me = useMe();
+  const [topMin, setTopMin] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const chat = useRef<HTMLInputElement>(null);
 
@@ -106,7 +130,13 @@ export function Hud() {
   return (
     <>
       <div id="fade" className={fading ? 'show' : ''} />
+      {topMin ? (
+        <button className="pill top-pill" onClick={() => setTopMin(false)}>
+          Tầng {level} · 🪷 {me.merit}/{need} · ⛓️ {me.strikes}/{MAX_STRIKES} ▾
+        </button>
+      ) : (
       <header className="hud-top">
+        <button className="close-x" onClick={() => setTopMin(true)} aria-label="Thu gọn">✕</button>
         <div className="floor-title">Tầng {level} · {f.name} <span className="han">{f.han}</span></div>
         <div className="floor-pun">Tội: {f.sin} — {f.punishment}</div>
         <div className="task">🎯 {f.def.task}</div>
@@ -122,10 +152,12 @@ export function Hud() {
         </div>
         <Strikes n={me.strikes} />
       </header>
+      )}
 
       <QuizPanel />
       <button className="side-toggle" onClick={() => setSideOpen((v) => !v)} aria-label="Mở bảng">☰</button>
       <aside className={sideOpen ? 'side open' : 'side'}>
+        <button className="close-x" onClick={() => setSideOpen(false)} aria-label="Đóng bảng">✕</button>
         <div className="panel">
           <h3>🏯 18 tầng địa ngục</h3>
           <ol className="floors">
@@ -150,11 +182,29 @@ export function Hud() {
         </div>
       </aside>
 
+      <Joystick />
       <div className="hud-bottom">
         {near && <div className="hint">{near}</div>}
         <div className="actions">
-          <button className={near ? 'act ready' : 'act'} onPointerDown={noFocus} onClick={interact}>✋ Tương tác <kbd>E</kbd></button>
-          <button className="act" onPointerDown={noFocus} onClick={() => (fx.jumpRequested = true)}>⤴ Nhảy <kbd>Space</kbd></button>
+          <button
+            className={near ? 'act use ready' : 'act use'}
+            onPointerDown={holdStart}
+            onPointerUp={holdEnd}
+            onPointerLeave={holdEnd}
+            onPointerCancel={holdEnd}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            ✋ Tương tác <kbd>E</kbd>
+          </button>
+          <button
+            className="act jump"
+            onPointerDown={(e) => {
+              noFocus(e);
+              fx.jumpRequested = true;
+            }}
+          >
+            ⤴ Nhảy <kbd>Space</kbd>
+          </button>
           <form
             className="chat"
             onSubmit={(e) => {
@@ -168,6 +218,7 @@ export function Hud() {
             <input ref={chat} maxLength={80} placeholder="Enter để nói với các hồn cùng tầng..." autoComplete="off" />
           </form>
         </div>
+        <p className="tip touch-tip">Kéo cần bên trái để đi · giữ ✋ để làm liên tục · vuốt màn hình xoay camera</p>
         <p className="tip"><kbd>WASD</kbd> di chuyển · <kbd>Shift</kbd> chạy · <kbd>Space</kbd> nhảy · kéo chuột xoay camera · cuộn để zoom · bấm xuống đất để đi tới</p>
       </div>
     </>
