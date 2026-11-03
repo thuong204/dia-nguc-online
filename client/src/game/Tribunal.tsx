@@ -111,7 +111,7 @@ export default function Tribunal() {
   const [busy, setBusy] = useState(false);
   const qs = useRef<Line[]>(questions());
   const answers = useRef<string[]>([]);
-  const result = useRef<{ level: number; ticket: string; at: number } | null>(null);
+  const result = useRef<{ id: string; level: number; ticket: string; at: number } | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const line = lines[i];
@@ -184,6 +184,7 @@ export default function Tribunal() {
     try {
       // vé chỉ có hạn 60 giây — xin vé mới nếu người chơi đọc lâu
       const t = Date.now() - r.at > 50_000 ? await requestJudgement(name, answers.current.join('. ')) : r;
+      useGame.getState().set({ soulId: t.id });
       await enterWithTicket(t.level, t.ticket);
       useGame.getState().set({ screen: 'game' });
     } catch {

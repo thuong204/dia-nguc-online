@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FeedItem } from '../../shared/game.ts';
+import type { BoardRow, FeedItem } from '../../shared/game.ts';
 import type { QuizView } from '../../shared/quiz.ts';
 
 /** Gợi ý hành động khi đang đứng gần một trạm (null nếu không có). */
@@ -10,6 +10,8 @@ export type Screen = 'judge' | 'tribunal' | 'game' | 'reborn';
 interface GameState {
   screen: Screen;
   soulName: string;
+  soulId: string;
+  board: BoardRow[];
   level: number;
   progress: number;
   need: number;
@@ -33,6 +35,8 @@ interface GameState {
 export const useGame = create<GameState>((set) => ({
   screen: 'judge',
   soulName: '',
+  soulId: '',
+  board: [],
   level: 0,
   progress: 0,
   need: 1,

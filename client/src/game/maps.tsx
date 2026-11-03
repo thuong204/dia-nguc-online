@@ -5,13 +5,13 @@ import { Html } from '@react-three/drei';
 import { CuboidCollider, CylinderCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import {
-  ARENA_Z, BLADE_STEPS, BRIDGE_PLANKS, HAZARD_W, IRON_TREES, PLATE_R, POND, SAW_HANDLE, floorDef,
+  ARENA_Z, BLADE_STEPS, PATROL_HIT_R, BRIDGE_PLANKS, HAZARD_W, IRON_TREES, PLATE_R, POND, SAW_HANDLE, floorDef,
 } from '../../../shared/game.ts';
 import { objects, players } from '../net.ts';
 import { useGame } from '../store.ts';
 import { fx, onBurst } from '../fx.ts';
 import { Ghost } from './Ghost.tsx';
-import { Burner, Flame, Torch, FloatingLanterns, Ground, Mill, bronze, darkStone, stone, wood, type Look } from './World.tsx';
+import { Burner, Flame, GuardModel, Torch, FloatingLanterns, Ground, Mill, bronze, darkStone, stone, wood, type Look } from './World.tsx';
 import { textTexture } from './textures.ts';
 import { LETTERS, QUIZ_R, QUIZ_SPOTS } from '../../../shared/quiz.ts';
 
@@ -1028,7 +1028,54 @@ const SCENES: Record<number, (p: SceneProps) => React.ReactElement> = {
   10: Floor10, 11: Floor11, 12: Floor12, 13: Floor13, 14: Floor14, 15: Floor15, 16: Floor16, 17: Floor17, 18: Floor18,
 };
 
+/* ================= Quỷ sai đi tuần (chướng ngại chung) ================= */
+const dangerMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 0.15, 0.1), toneMapped: false, transparent: true, opacity: 0.5, depthWrite: false });
+
+function PatrolGuard({ id }: { id: string }) {
+  const ref = useRef<THREE.Group>(null);
+  const body = useRef<THREE.Group>(null);
+  const o = objects.get(id)!;
+  const prev = useRef({ x: o.x, z: o.z });
+  useFrame(({ clock }, dt) => {
+    const g = ref.current, cur = objects.get(id);
+    if (!g || !cur) return;
+    const k = 1 - Math.exp(-10 * Math.min(dt, 0.05));
+    g.position.x += (cur.x - g.position.x) * k;
+    g.position.z += (cur.z - g.position.z) * k;
+    const dx = cur.x - prev.current.x, dz = cur.z - prev.current.z;
+    if (Math.hypot(dx, dz) > 0.01) {
+      const target = Math.atan2(dx, dz);
+      let d = target - g.rotation.y;
+      d = ((d + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      g.rotation.y += d * k;
+    }
+    prev.current = { x: cur.x, z: cur.z };
+    if (body.current) body.current.rotation.z = Math.sin(clock.elapsedTime * 7) * 0.06; // dáng đi lắc lư
+    dangerMat.opacity = 0.35 + Math.abs(Math.sin(clock.elapsedTime * 3)) * 0.25;
+  });
+  return (
+    <group ref={ref} position={[o.x, 0, o.z]}>
+      <mesh rotation-x={-Math.PI / 2} position-y={0.06} material={dangerMat}>
+        <ringGeometry args={[PATROL_HIT_R - 0.15, PATROL_HIT_R, 32]} />
+      </mesh>
+      <group ref={body}>
+        <GuardModel kind={o.hp === 0 ? 'bull' : 'horse'} label={o.hp === 0 ? '⚠ Ngưu Đầu tuần tra' : '⚠ Mã Diện tuần tra'} />
+      </group>
+    </group>
+  );
+}
+
+function Patrols() {
+  const ids = useObjIds('patrol');
+  return <>{ids.map((id) => <PatrolGuard key={id} id={id} />)}</>;
+}
+
 export function FloorScene({ level, look }: SceneProps) {
   const Scene = SCENES[level] ?? Floor17;
-  return <Scene level={level} look={look} />;
+  return (
+    <>
+      <Scene level={level} look={look} />
+      <Patrols />
+    </>
+  );
 }

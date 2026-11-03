@@ -1,7 +1,7 @@
 // Luật chơi của 18 tầng — 9 kiểu cơ chế, mỗi tầng cấu hình riêng trong shared/game.ts.
 import type { Client } from '@colyseus/core';
 import {
-  ARENA_Z, BOUNDS, HAZARD_COLS, HAZARD_ROWS, HAZARD_W, IRON_TREES, PLATE_R, PUSH_R, REACH, RHYTHM,
+  ARENA_Z, BOUNDS, PATROLS, PATROL_HIT_R, POND, HAZARD_COLS, HAZARD_ROWS, HAZARD_W, IRON_TREES, PLATE_R, PUSH_R, REACH, RHYTHM,
   SAW_HANDLE, SPOTS, TREE_HIT_R, WHACK_R, type FloorDef,
 } from '../../shared/game.ts';
 import { QUESTIONS, QUIZ_R, QUIZ_SPOTS, QUIZ_TIME, type QuizView } from '../../shared/quiz.ts';
@@ -22,6 +22,10 @@ export abstract class Activity {
     Object.assign(o, { kind, x, y: 0, z, s: 0, hp: 0, owner: '', ...extra });
     this.state.objects.set(id, o);
     return o;
+  }
+  /** Các vật thể theo loại — tránh lẫn với quỷ sai đi tuần dùng chung danh sách. */
+  protected list(kind: string) {
+    return [...this.state.objects.values()].filter((o) => o.kind === kind);
   }
   init() {}
   tick(_dt: number) {}
@@ -81,17 +85,18 @@ class Collect extends Activity {
   }
   private updateGoal() {
     let free = 0, carried = 0;
-    this.state.objects.forEach((o) => (o.owner ? carried++ : free++));
+    this.list('item').forEach((o) => (o.owner ? carried++ : free++));
     this.state.goal = `Còn ${free} vật chờ nhặt · ${carried} đang được mang`;
   }
   tick(dt: number) {
     this.spawnT += dt;
-    if (this.spawnT > 1.6 && this.state.objects.size < this.cfg.max) {
+    if (this.spawnT > 1.6 && this.list('item').length < this.cfg.max) {
       this.spawnT = 0;
       this.spawn();
       this.updateGoal();
     }
     this.state.objects.forEach((o, id) => {
+      if (o.kind !== 'item') return;
       if (o.owner) {
         const p = this.state.players.get(o.owner);
         if (!p) { o.owner = ''; o.y = this.cfg.drift ? 1.6 : 0.4; return; }
@@ -131,7 +136,7 @@ class Collect extends Activity {
       return;
     }
     if (p.y > 2.5) return;
-    for (const o of this.state.objects.values()) {
+    for (const o of this.list('item')) {
       if (!o.owner && dist(p, o) <= 1.9) {
         o.owner = c.sessionId;
         this.room.broadcast('fx', { k: 'burst', x: o.x, y: 1.5, z: o.z, c: 'white' });
@@ -246,7 +251,7 @@ class Plates extends Activity {
   tick(dt: number) {
     const players = [...this.state.players.values()];
     let occ = 0, total = 0;
-    this.state.objects.forEach((o) => {
+    this.list('plate').forEach((o) => {
       total++;
       o.s = players.some((p) => p.y < 1.6 && dist(p, o) <= PLATE_R) ? 1 : 0;
       occ += o.s;
@@ -260,7 +265,7 @@ class Plates extends Activity {
       if (all)
         this.room.clients.forEach((c) => {
           const p = this.state.players.get(c.sessionId);
-          if (p && p.y < 1.6 && [...this.state.objects.values()].some((o) => dist(p, o) <= PLATE_R)) this.room.credit(c, 1);
+          if (p && p.y < 1.6 && this.list('plate').some((o) => dist(p, o) <= PLATE_R)) this.room.credit(c, 1);
         });
     }
     this.state.goal = all ? `Cả ${total} tấm gương đều sáng — tội lỗi đang được soi rõ...` : `Gương sáng ${occ}/${total} — cần đủ người đứng trước gương`;
@@ -278,11 +283,11 @@ class Whack extends Activity {
   }
   private active() {
     let n = 0;
-    this.state.objects.forEach((o) => (n += o.s));
+    this.list('station').forEach((o) => (n += o.s));
     return n;
   }
   private ignite() {
-    const ok = [...this.state.objects.values()].filter((o) => o.s === 0);
+    const ok = this.list('station').filter((o) => o.s === 0);
     if (!ok.length) return;
     const o = ok[Math.floor(Math.random() * ok.length)];
     o.s = 1;
@@ -305,7 +310,7 @@ class Whack extends Activity {
   }
   onAct(c: Client, p: Player) {
     let best: Obj | null = null, bd = WHACK_R + 0.5;
-    this.state.objects.forEach((o) => {
+    this.list('station').forEach((o) => {
       const d = dist(p, o);
       if (o.s === 1 && d < bd) { bd = d; best = o; }
     });
@@ -376,7 +381,7 @@ class Rhythm extends Activity {
     }
   }
   onAct(c: Client, p: Player) {
-    const near = [...this.state.objects.values()].find((o) => dist(p, o) <= RHYTHM.r);
+    const near = this.list('mortar').find((o) => dist(p, o) <= RHYTHM.r);
     if (!near || this.hitThisBeat.has(c.sessionId)) return;
     const since = (Date.now() - this.beatAt) / 1000;
     const onBeat = since < 0.42 || RHYTHM.period - since < 0.12;
@@ -400,7 +405,7 @@ class Saw extends Activity {
     this.state.goal = 'Đứng ở đầu cưa đang sáng, bấm E';
   }
   onAct(c: Client, p: Player) {
-    for (const o of this.state.objects.values()) {
+    for (const o of this.list('saw')) {
       const hx = o.x + (o.s === 0 ? -SAW_HANDLE : SAW_HANDLE);
       if (Math.hypot(p.x - hx, p.z - o.z) <= 1.9) {
         o.s = o.s ? 0 : 1;
@@ -502,6 +507,95 @@ class Quiz extends Activity {
   private publish() {
     const j = JSON.stringify(this.view);
     if (j !== this.state.quiz) this.state.quiz = j;
+  }
+}
+
+/* ---------- Quỷ sai đi tuần: chướng ngại chung cho các tầng ---------- */
+export class Patrol extends Activity {
+  private bots: { o: Obj; tx: number; tz: number; seg: number; dir: number }[] = [];
+  private lastHit = new Map<string, number>();
+  private cfg = PATROLS[this.room.state.level];
+  private corners() {
+    const p = this.cfg.path;
+    if (typeof p === 'object' && 'rect' in p) {
+      const r = p.rect;
+      return [{ x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 }];
+    }
+    return [];
+  }
+  private nextTarget(b: { tx: number; tz: number; seg: number; dir: number }) {
+    const p = this.cfg.path;
+    if (p === 'roam') {
+      b.tx = rand(-BOUNDS.x + 3, BOUNDS.x - 3);
+      b.tz = rand(-BOUNDS.z + 3, ARENA_Z - 2.5);
+    } else if ('circle' in p) {
+      b.seg += b.dir;
+      const a = (b.seg / 16) * Math.PI * 2;
+      b.tx = p.circle.x + Math.cos(a) * p.circle.r;
+      b.tz = p.circle.z + Math.sin(a) * p.circle.r;
+    } else {
+      const c = this.corners();
+      b.seg = (b.seg + b.dir + 4) % 4;
+      b.tx = c[b.seg].x;
+      b.tz = c[b.seg].z;
+    }
+  }
+  init() {
+    for (let i = 0; i < this.cfg.n; i++) {
+      // hai quỷ sai đi ngược chiều nhau cho khó đoán
+      const b = { o: this.obj('pt' + i, 'patrol', 0, 0, { hp: i % 2 }), tx: 0, tz: 0, seg: i * 8, dir: i % 2 ? -1 : 1 };
+      const p = this.cfg.path;
+      if (p === 'roam') {
+        b.o.x = rand(-BOUNDS.x + 4, BOUNDS.x - 4);
+        b.o.z = rand(-BOUNDS.z + 4, 2);
+      } else if ('circle' in p) {
+        const a = (b.seg / 16) * Math.PI * 2;
+        b.o.x = p.circle.x + Math.cos(a) * p.circle.r;
+        b.o.z = p.circle.z + Math.sin(a) * p.circle.r;
+      } else {
+        b.seg = i * 2;
+        const c = this.corners()[b.seg];
+        b.o.x = c.x;
+        b.o.z = c.z;
+      }
+      this.nextTarget(b);
+      this.bots.push(b);
+    }
+  }
+  tick(dt: number) {
+    for (const b of this.bots) {
+      const dx = b.tx - b.o.x, dz = b.tz - b.o.z, d = Math.hypot(dx, dz);
+      const step = this.cfg.speed * dt;
+      if (d <= step) this.nextTarget(b);
+      else {
+        b.o.x += (dx / d) * step;
+        b.o.z += (dz / d) * step;
+      }
+    }
+    const now = Date.now();
+    for (const c of this.room.clients) {
+      const p = this.state.players.get(c.sessionId);
+      if (!p || p.y > 1.6 || p.z > ARENA_Z) continue;
+      if (now - (this.lastHit.get(c.sessionId) ?? 0) < 2500) continue;
+      const hit = this.bots.find((b) => dist(p, b.o) < PATROL_HIT_R);
+      if (hit) {
+        this.lastHit.set(c.sessionId, now);
+        this.room.broadcast('fx', { k: 'burst', x: p.x, y: 1.5, z: p.z, c: 'white' });
+        this.room.strike(c, hit.o.hp === 0 ? '🐂 Va phải Ngưu Đầu đang đi tuần!' : '🐴 Bị Mã Diện bắt gặp!');
+      }
+    }
+  }
+  onMove(c: Client, p: Player) {
+    // Tầng 13: trượt chân rơi xuống Ao Máu
+    if (this.room.state.level === 13 && p.y < -1.2 && p.x > POND.x0 && p.x < POND.x1 && p.z > POND.z0 && p.z < POND.z1) {
+      const now = Date.now();
+      if (now - (this.lastHit.get('pond' + c.sessionId) ?? 0) < 3000) return;
+      this.lastHit.set('pond' + c.sessionId, now);
+      this.room.strike(c, '🩸 Rơi xuống Ao Máu!');
+    }
+  }
+  onLeave(id: string) {
+    this.lastHit.delete(id);
   }
 }
 

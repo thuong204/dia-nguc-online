@@ -4,6 +4,7 @@ import { devJump, fetchOverview } from './net.ts';
 import { ambience, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
 import { useGame } from './store.ts';
 import { Feed } from './ui/Feed.tsx';
+import { Leaderboard } from './ui/Leaderboard.tsx';
 import { Hud } from './ui/Hud.tsx';
 
 const Game = lazy(() => import('./game/Game.tsx'));
@@ -63,7 +64,10 @@ function Judge() {
         )}
       </div>
       <aside className="card feed-card">
-        <h3>📜 Sổ Sinh Tử (trực tiếp)</h3>
+        <h3>🏆 Bảng sám hối</h3>
+        <p className="small">Xếp theo tổng công đức tích được qua mọi tầng.</p>
+        <Leaderboard />
+        <h3 style={{ marginTop: 18 }}>📜 Sổ Sinh Tử (trực tiếp)</h3>
         <Feed />
       </aside>
     </section>

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { FLOORS } from '../../../shared/game.ts';
 import { devJump, players, send } from '../net.ts';
-import { MAX_STRIKES } from '../../../shared/game.ts';
+import { MAX_STRIKES, PATROLS } from '../../../shared/game.ts';
 import { sfx } from '../audio.ts';
 import { useGame } from '../store.ts';
 import { fx, isTyping } from '../fx.ts';
 import { Feed } from './Feed.tsx';
 import { Joystick } from './Joystick.tsx';
+import { Leaderboard } from './Leaderboard.tsx';
 import { LETTERS } from '../../../shared/quiz.ts';
 
 /** Công đức riêng + số lần vi phạm của chính mình (đọc thẳng từ schema). */
@@ -140,6 +141,7 @@ export function Hud() {
         <div className="floor-title">Tầng {level} · {f.name} <span className="han">{f.han}</span></div>
         <div className="floor-pun">Tội: {f.sin} — {f.punishment}</div>
         <div className="task">🎯 {f.def.task}</div>
+        {PATROLS[level] && <div className="task danger-tip">⚠ Né Ngưu Đầu, Mã Diện đi tuần — đụng phải là vi phạm{level === 13 ? '; rơi xuống Ao Máu cũng vậy' : ''}.</div>}
         {goal && <div className="goal">{goal}</div>}
         <div className="prog-label">
           <span>🪷 Công đức của bạn</span>
@@ -175,6 +177,10 @@ export function Hud() {
               </li>
             ))}
           </ol>
+        </div>
+        <div className="panel">
+          <h3>🏆 Sám hối nhiều nhất</h3>
+          <Leaderboard limit={5} />
         </div>
         <div className="panel feed-card">
           <h3>📜 Sổ Sinh Tử</h3>

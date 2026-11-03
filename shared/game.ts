@@ -198,6 +198,24 @@ export const BLADE_STEPS = (() => {
   return out;
 })();
 
+/** Quỷ sai đi tuần ở các tầng không có chướng ngại riêng — đụng phải là vi phạm. */
+export type PatrolPath = { circle: XZ & { r: number } } | { rect: { x0: number; x1: number; z0: number; z1: number } } | 'roam';
+export const PATROLS: Record<number, { n: number; speed: number; path: PatrolPath }> = {
+  4: { n: 2, speed: 2.6, path: 'roam' },
+  5: { n: 2, speed: 3, path: 'roam' },
+  6: { n: 2, speed: 3, path: 'roam' },
+  7: { n: 2, speed: 3.4, path: { circle: { x: 0, z: -8, r: 10.5 } } },
+  8: { n: 2, speed: 2.8, path: 'roam' },
+  9: { n: 2, speed: 3, path: 'roam' },
+  11: { n: 2, speed: 2.8, path: 'roam' },
+  12: { n: 2, speed: 2.6, path: 'roam' },
+  13: { n: 2, speed: 3.2, path: { rect: { x0: -11.5, x1: 11.5, z0: -15, z1: 8.2 } } },
+  14: { n: 2, speed: 2.4, path: 'roam' },
+  17: { n: 2, speed: 3, path: 'roam' },
+  18: { n: 2, speed: 3, path: 'roam' },
+};
+export const PATROL_HIT_R = 1.5;
+
 /** Tầng 13: ao máu (không có nền) & cây cầu. */
 export const POND = { x0: -9, x1: 9, z0: -13, z1: 6 };
 export const BRIDGE_PLANKS = 12;
@@ -255,7 +273,18 @@ export interface FeedItem {
   t: number;
 }
 
+export interface BoardRow {
+  id: string;
+  name: string;
+  hue: number;
+  merit: number; // tổng công đức qua mọi tầng
+  pardons: number; // số lần được ân xá lên tầng
+  level: number; // tầng hiện tại / gần nhất
+  reborn: boolean; // đã qua cầu Nại Hà đầu thai
+}
+
 export interface JudgeResponse {
+  id: string;
   level: number;
   ticket: string;
   hue: number;

@@ -6,7 +6,8 @@ import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { FLOORS, judge, type JudgeResponse } from '../../shared/game.ts';
 import { FloorRoom } from './FloorRoom.ts';
-import { addFeed, feed, issueTicket, stats } from './hub.ts';
+import { randomUUID } from 'node:crypto';
+import { addFeed, feed, issueTicket, leaderboard, stats } from './hub.ts';
 
 const PORT = Number(process.env.PORT) || 2567;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,16 +30,17 @@ const gameServer = new Server({
       const devLevel = process.env.NODE_ENV !== 'production' && Number.isInteger(forced) && forced >= 1 && forced <= FLOORS.length;
       const level = devLevel ? forced : judge(sin);
       const hue = Math.floor(Math.random() * 360);
-      const ticket = issueTicket({ name, sin, hue, level });
+      const id = randomUUID();
+      const ticket = issueTicket({ id, name, sin, hue, level });
       addFeed({ kind: 'judge', name, text: `bị đày xuống tầng ${level} vì: "${sin.length > 80 ? sin.slice(0, 78) + '…' : sin}"` });
-      const body: JudgeResponse = { level, ticket, hue };
+      const body: JudgeResponse = { id, level, ticket, hue };
       res.json(body);
     });
 
     app.get('/healthz', (_req, res) => res.send('ok'));
 
     app.get('/api/overview', (_req, res) => {
-      res.json({ floors: FLOORS.map(({ keywords, ...f }) => f), feed, stats: stats() });
+      res.json({ floors: FLOORS.map(({ keywords, ...f }) => f), feed, stats: stats(), board: leaderboard() });
     });
 
     if (process.env.NODE_ENV === 'production') {

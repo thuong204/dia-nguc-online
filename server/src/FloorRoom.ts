@@ -1,8 +1,8 @@
 import { Room, type Client } from '@colyseus/core';
-import { BOUNDS, FLOORS, MAX_STRIKES, REBIRTHS, SPAWN, floorDef } from '../../shared/game.ts';
-import { createActivity, type Activity } from './activities.ts';
+import { BOUNDS, FLOORS, MAX_STRIKES, PATROLS, REBIRTHS, SPAWN, floorDef } from '../../shared/game.ts';
+import { createActivity, Patrol, type Activity } from './activities.ts';
 import { FloorState, Player } from './schema.ts';
-import { addFeed, consumeTicket, countSoul, hub, issueTicket, stats, type Soul } from './hub.ts';
+import { addFeed, addMerit, consumeTicket, countSoul, hub, issueTicket, leaderboard, notePardon, stats, type Soul } from './hub.ts';
 
 const clean = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const num = (v: unknown, fb: number) => (Number.isFinite(Number(v)) ? Number(v) : fb);
@@ -22,6 +22,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
   private last = new Map<string, Record<string, number>>();
   private off: (() => void)[] = [];
   private activity!: Activity;
+  private patrol: Patrol | null = null;
 
   onCreate(options: { level: number }) {
     const level = Math.max(1, Math.min(FLOORS.length, Math.floor(num(options?.level, 1))));
@@ -32,14 +33,23 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     this.patchRate = 1000 / 20;
     this.activity = createActivity(def, this);
     this.activity.init();
-    this.setSimulationInterval((ms) => this.activity.tick(ms / 1000), 100);
+    if (PATROLS[level]) {
+      this.patrol = new Patrol(this, def);
+      this.patrol.init();
+    }
+    this.setSimulationInterval((ms) => {
+      this.activity.tick(ms / 1000);
+      this.patrol?.tick(ms / 1000);
+    }, 100);
 
     // Chuyển tin toàn cục (Sổ Sinh Tử, số hồn mỗi tầng) xuống client của phòng này
     const onFeed = (item: unknown) => this.broadcast('feed', item);
     const onStats = (s: number[]) => this.broadcast('stats', s);
+    const onBoard = (b: unknown) => this.broadcast('board', b);
     hub.on('feed', onFeed);
     hub.on('stats', onStats);
-    this.off.push(() => hub.off('feed', onFeed), () => hub.off('stats', onStats));
+    hub.on('board', onBoard);
+    this.off.push(() => hub.off('feed', onFeed), () => hub.off('stats', onStats), () => hub.off('board', onBoard));
 
     this.onMessage('move', (client, d: any) => {
       const p = this.state.players.get(client.sessionId);
@@ -49,6 +59,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
       p.y = Math.max(-20, Math.min(14, num(d?.y, 0)));
       p.r = num(d?.r, p.r);
       this.activity.onMove(client, p);
+      this.patrol?.onMove(client, p);
     });
 
     this.onMessage('chat', (client, text) => {
@@ -87,6 +98,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     this.state.players.set(client.sessionId, p);
     countSoul(this.state.level, +1);
     client.send('stats', stats());
+    client.send('board', leaderboard());
     this.activity.onRoster();
   }
 
@@ -95,6 +107,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     this.last.delete(client.sessionId);
     this.pardoned.delete(client.sessionId);
     this.activity.onLeave(client.sessionId);
+    this.patrol?.onLeave(client.sessionId);
     this.activity.onRoster();
   }
 
@@ -125,7 +138,9 @@ export class FloorRoom extends Room<{ state: FloorState }> {
   credit(client: Client, n: number) {
     const p = this.state.players.get(client.sessionId);
     if (!p || n <= 0) return;
-    p.merit = Math.min(this.state.need, p.merit + n);
+    const add = Math.min(n, this.state.need - p.merit);
+    p.merit += add;
+    if (add > 0) addMerit(client.auth as Soul, this.state.level, add);
     if (p.merit >= this.state.need) this.pardon(client);
   }
 
@@ -156,6 +171,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     this.pardoned.add(client.sessionId);
     const level = this.state.level;
     const soul = client.auth as Soul;
+    notePardon(soul, level, level === 1);
     if (level === 1) {
       addFeed({ kind: 'pardon', name: soul.name, text: 'sám hối xong, qua cầu Nại Hà đi đầu thai!' });
       this.rebirth(client);

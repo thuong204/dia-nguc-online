@@ -1,5 +1,5 @@
 import { Client, Callbacks, type Room } from '@colyseus/sdk';
-import type { FeedItem, JudgeResponse } from '../../shared/game.ts';
+import type { BoardRow, FeedItem, JudgeResponse } from '../../shared/game.ts';
 import { pushFeed, showBubble, toast, useGame } from './store.ts';
 import { fx, onBurn, onBurst, onPush } from './fx.ts';
 import { ambience, sfx } from './audio.ts';
@@ -66,6 +66,7 @@ export async function devJump(level: number) {
     body: JSON.stringify({ name, sin: `(test tầng ${level})`, level }),
   });
   const j: JudgeResponse = await res.json();
+  G().set({ soulId: j.id });
   const old = room;
   room = null;
   G().set({ fading: true });
@@ -144,6 +145,7 @@ async function enterFloor(level: number, ticket: string) {
   });
   r.onMessage('feed', (item: FeedItem) => pushFeed(item));
   r.onMessage('stats', (s: number[]) => G().set({ stats: s }));
+  r.onMessage('board', (b: BoardRow[]) => G().set({ board: b }));
 
   const moveTo = async (next: number, t: string, msg: string) => {
     G().set({ fading: true });
@@ -188,7 +190,7 @@ export async function fetchOverview() {
   try {
     const res = await fetch('/api/overview');
     const d = await res.json();
-    G().set({ feed: d.feed, stats: d.stats });
+    G().set({ feed: d.feed, stats: d.stats, board: d.board ?? [] });
   } catch {
     /* server chưa chạy */
   }

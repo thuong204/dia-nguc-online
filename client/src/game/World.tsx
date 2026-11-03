@@ -315,16 +315,26 @@ const steel = new THREE.MeshStandardMaterial({ color: '#b8c0c8', metalness: 0.9,
 
 /** Quỷ sai Ngưu Đầu (đầu trâu) / Mã Diện (mặt ngựa) cầm đinh ba. */
 function Guard({ kind, position }: { kind: 'bull' | 'horse'; position: [number, number, number] }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.position.y = Math.sin(clock.elapsedTime * 1.2 + position[0]) * 0.05;
-  });
-  const skin = kind === 'bull' ? bullSkin : horseSkin;
   return (
     <group position={position}>
       <RigidBody type="fixed" colliders={false}>
         <CylinderCollider args={[1.6, 0.9]} position-y={1.6} />
       </RigidBody>
+      <GuardModel kind={kind} />
+    </group>
+  );
+}
+
+/** Ngưu Đầu (bull) / Mã Diện (horse) — dùng ở cổng và cho quỷ sai đi tuần. */
+export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: string }) {
+  const ref = useRef<THREE.Group>(null);
+  const phase = useMemo(() => Math.random() * 10, []);
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.position.y = Math.sin(clock.elapsedTime * 1.2 + phase) * 0.05;
+  });
+  const skin = kind === 'bull' ? bullSkin : horseSkin;
+  return (
+    <group>
       <group ref={ref} scale={1.5}>
         <mesh material={robe} position-y={1.0} castShadow>
           <coneGeometry args={[0.85, 2.0, 12]} />
@@ -364,7 +374,7 @@ function Guard({ kind, position }: { kind: 'bull' | 'horse'; position: [number, 
         </group>
       </group>
       <Html position={[0, 5.4, 0]} center pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="tag">{kind === 'bull' ? 'Ngưu Đầu' : 'Mã Diện'}</div>
+        <div className="tag">{label ?? (kind === 'bull' ? 'Ngưu Đầu' : 'Mã Diện')}</div>
       </Html>
     </group>
   );

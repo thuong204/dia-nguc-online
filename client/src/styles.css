@@ -200,3 +200,22 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
   .quiz-pill { bottom: 250px; }
   .mute, .game ~ .mute { top: 70px; right: 16px; left: auto; bottom: auto; }
 }
+.danger-tip { color: #ff9a8a; }
+
+/* bảng xếp hạng */
+.board { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13px; }
+.board li { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 8px; }
+.board li:nth-child(-n + 3) { background: #ff6a2a14; }
+.board li.me { outline: 1px solid var(--gold); background: #ffcf5a1f; }
+.board .rank { width: 24px; text-align: center; font-weight: 800; color: var(--fire); flex: none; }
+.board .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.board .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .where { color: var(--muted); font-size: 11px; flex: none; }
+.board b { color: var(--gold); flex: none; min-width: 52px; text-align: right; }
+.board-empty { margin: 4px 0 0; }
+/* danh sách 18 tầng trong game: 2 cột cho gọn, nhường chỗ cho bảng xếp hạng */
+.side .floors { display: grid; grid-template-columns: 1fr 1fr; column-gap: 4px; font-size: 12px; }
+.side .floors li { padding: 2px 6px; gap: 4px; }
+.side .floors li .n { width: 18px; }
+.side .panel { padding: 10px 12px; }
+.side .panel h3 { margin: 0 0 6px; }
