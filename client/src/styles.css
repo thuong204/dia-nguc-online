@@ -220,3 +220,4 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
 .side .panel { padding: 10px 12px; }
 .side .panel h3 { margin: 0 0 6px; }
 .feed li.banish b { color: #ff5a4a; }
+.voice-warn { color: #ffb08a; background: #3a0e0a88; border: 1px solid #7a2a1a; border-radius: 8px; padding: 8px 10px; line-height: 1.45; }

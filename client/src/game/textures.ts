@@ -212,8 +212,9 @@ export function drawSign(canvas: HTMLCanvasElement, level: number) {
 }
 
 /** Chữ neon / bảng hiệu vẽ bằng canvas. */
-export function textTexture(lines: string[], opts: { w?: number; h?: number; color?: string; bg?: string; glow?: string; size?: number } = {}) {
-  const { w = 1024, h = 256, color = '#fff', bg = 'rgba(0,0,0,0)', glow = color, size = 110 } = opts;
+export function textTexture(lines: string[], opts: { w?: number; h?: number; color?: string; bg?: string; glow?: string; size?: number; serif?: boolean } = {}) {
+  const { w = 1024, h = 256, color = '#fff', bg = 'rgba(0,0,0,0)', glow = color, size = 110, serif = false } = opts;
+  const family = serif ? '700 SIZEpx "Noto Serif TC", serif' : '800 SIZEpx "Be Vietnam Pro", sans-serif';
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -232,7 +233,7 @@ export function textTexture(lines: string[], opts: { w?: number; h?: number; col
     lines.forEach((l, i) => {
       let s = size;
       do {
-        g.font = `800 ${s}px "Be Vietnam Pro", sans-serif`;
+        g.font = family.replace('SIZE', String(s));
         s -= 4;
       } while (g.measureText(l).width > w - 40 && s > 16);
       g.fillText(l, w / 2, (h / (lines.length + 1)) * (i + 1));
@@ -240,7 +241,7 @@ export function textTexture(lines: string[], opts: { w?: number; h?: number; col
     tex.needsUpdate = true;
   };
   paint();
-  document.fonts?.load('800 64px "Be Vietnam Pro"').then(paint).catch(() => {});
+  document.fonts?.load(family.replace('SIZE', '64')).then(paint).catch(() => {});
   return tex;
 }
 

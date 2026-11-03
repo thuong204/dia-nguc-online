@@ -176,25 +176,34 @@ export function ambience(level: number) {
   amb?.stop();
   const out = a.createGain();
   out.gain.setValueAtTime(0.0001, a.currentTime);
-  out.gain.exponentialRampToValueAtTime(level === 0 ? 0.5 : 0.35, a.currentTime + 2.5);
+  out.gain.exponentialRampToValueAtTime(level === 0 ? 0.7 : 0.55, a.currentTime + 2.5);
   out.connect(master);
   const nodes: AudioScheduledSourceNode[] = [];
 
   // Tiếng ù trầm: hai sóng lệch nhau tạo cảm giác rung rợn
   const base = level === 0 ? 41 : [55, 49, 46, 52, 58, 44, 62, 39, 47, 51, 43, 57, 36, 33, 48, 65, 40, 37][level - 1];
+  // Loa laptop/điện thoại không phát được tần số quá trầm → dùng dải 130–500 Hz
   const lp = a.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = level === 8 ? 600 : 260;
+  lp.frequency.value = level === 8 ? 1400 : 900;
   lp.connect(out);
-  [1, 1.007, 1.5].forEach((m, i) => {
+  const root = base * 4;
+  [1, 1.006, 1.5, 2.0, 2.38].forEach((m, i) => {
     const o = a.createOscillator();
-    o.type = i === 2 ? 'sine' : 'sawtooth';
-    o.frequency.value = base * m;
+    o.type = i < 2 ? 'sawtooth' : 'triangle';
+    o.frequency.value = root * m;
     const g = a.createGain();
-    g.gain.value = i === 2 ? 0.12 : 0.18;
+    g.gain.value = [0.07, 0.07, 0.05, 0.035, 0.02][i];
+    // âm lượng phập phồng chậm cho rợn
+    const trem = a.createOscillator();
+    trem.frequency.value = 0.08 + i * 0.03;
+    const tg = a.createGain();
+    tg.gain.value = g.gain.value * 0.6;
+    trem.connect(tg).connect(g.gain);
+    trem.start();
     o.connect(g).connect(lp);
     o.start();
-    nodes.push(o);
+    nodes.push(o, trem);
   });
 
   // Gió âm phủ: tiếng ồn lọc dải, tần số trôi chậm
@@ -203,14 +212,14 @@ export function ambience(level: number) {
   const bp = a.createBiquadFilter();
   bp.type = 'bandpass';
   bp.Q.value = 0.8;
-  bp.frequency.value = 500;
+  bp.frequency.value = 900;
   const lfo = a.createOscillator();
   lfo.frequency.value = 0.07;
   const lfoG = a.createGain();
-  lfoG.gain.value = 350;
+  lfoG.gain.value = 600;
   lfo.connect(lfoG).connect(bp.frequency);
   const wg = a.createGain();
-  wg.gain.value = level === 8 ? 0.35 : 0.18; // núi băng gió rít mạnh hơn
+  wg.gain.value = level === 8 ? 0.55 : 0.3; // núi băng gió rít mạnh hơn
   w.connect(bp).connect(wg).connect(out);
   w.start();
   lfo.start();
@@ -248,7 +257,9 @@ function pickVoice() {
   if (viVoice !== undefined && viVoice !== null) return viVoice;
   const vs = speechSynthesis.getVoices();
   if (!vs.length) return null;
-  viVoice = vs.find((v) => v.lang.toLowerCase().startsWith('vi')) ?? null;
+  const vi = vs.filter((v) => v.lang.toLowerCase().replace('_', '-').startsWith('vi'));
+  // ưu tiên giọng tự nhiên (Edge "Natural", Google) hơn giọng robot
+  viVoice = vi.find((v) => /natural|online|google/i.test(v.name)) ?? vi[0] ?? null;
   return viVoice;
 }
 if (typeof speechSynthesis !== 'undefined') speechSynthesis.onvoiceschanged = () => (viVoice = undefined);
@@ -308,4 +319,15 @@ function pump() {
   u.onend = done;
   u.onerror = done;
   speechSynthesis.speak(u);
+}
+
+/** Có giọng đọc tiếng Việt không — trả về sau khi trình duyệt nạp xong danh sách giọng. */
+export function checkVoice(): Promise<boolean> {
+  if (typeof speechSynthesis === 'undefined') return Promise.resolve(false);
+  if (speechSynthesis.getVoices().length) return Promise.resolve(!!pickVoice());
+  return new Promise((res) => {
+    const done = () => res(!!pickVoice());
+    speechSynthesis.addEventListener?.('voiceschanged', done, { once: true });
+    setTimeout(done, 1500);
+  });
 }

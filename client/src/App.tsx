@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { FLOORS } from '../../shared/game.ts';
 import { devJump, fetchOverview } from './net.ts';
-import { ambience, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
+import { ambience, checkVoice, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
 import { useGame } from './store.ts';
 import { Feed } from './ui/Feed.tsx';
 import { Leaderboard } from './ui/Leaderboard.tsx';
@@ -50,6 +50,7 @@ function Judge() {
           </label>
           <button type="submit" className="primary">Ra trình diện Diêm Vương</button>
           <p className="small">🔊 Nên bật loa để nghe Diêm Vương tra hỏi.</p>
+          <VoiceWarning />
         </form>
         {import.meta.env.DEV && (
           <label style={{ marginTop: 12, display: 'block' }}>
@@ -118,6 +119,20 @@ function Reborn() {
   );
 }
 
+function VoiceWarning() {
+  const [ok, setOk] = useState(true);
+  useEffect(() => {
+    checkVoice().then(setOk);
+  }, []);
+  if (ok) return null;
+  return (
+    <p className="small voice-warn">
+      ⚠ Trình duyệt này chưa có giọng đọc tiếng Việt nên Diêm Vương sẽ chỉ hiện chữ (vẫn có nhạc và hiệu ứng).
+      Muốn nghe giọng: dùng <b>Microsoft Edge</b> (giọng HoaiMy rất tự nhiên), hoặc Chrome trên Windows / Android / iPhone.
+    </p>
+  );
+}
+
 function MuteButton() {
   const [m, setM] = useState(isMuted());
   useEffect(() => {
@@ -125,7 +140,14 @@ function MuteButton() {
     return () => void off();
   }, []);
   return (
-    <button className="mute" onClick={() => setMuted(!m)} aria-label={m ? 'Bật âm thanh' : 'Tắt âm thanh'}>
+    <button
+      className="mute"
+      onClick={() => {
+        setMuted(!m);
+        if (m) sfx.bell(); // vừa bật lại → kêu thử một tiếng
+      }}
+      aria-label={m ? 'Bật âm thanh' : 'Tắt âm thanh'}
+    >
       {m ? '🔇' : '🔊'}
     </button>
   );
