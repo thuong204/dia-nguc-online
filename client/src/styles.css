@@ -219,3 +219,4 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
 .side .floors li .n { width: 18px; }
 .side .panel { padding: 10px 12px; }
 .side .panel h3 { margin: 0 0 6px; }
+.feed li.banish b { color: #ff5a4a; }

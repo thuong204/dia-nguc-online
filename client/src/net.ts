@@ -3,6 +3,7 @@ import type { BoardRow, FeedItem, JudgeResponse } from '../../shared/game.ts';
 import { pushFeed, showBubble, toast, useGame } from './store.ts';
 import { fx, onBurn, onBurst, onPush } from './fx.ts';
 import { ambience, sfx } from './audio.ts';
+import { announceFeed } from './announcer.ts';
 
 const endpoint = import.meta.env.DEV ? `${location.protocol}//${location.hostname}:2567` : location.origin;
 const client = new Client(endpoint);
@@ -143,7 +144,10 @@ async function enterFloor(level: number, ticket: string) {
     toast(msg);
     sfx.bell();
   });
-  r.onMessage('feed', (item: FeedItem) => pushFeed(item));
+  r.onMessage('feed', (item: FeedItem) => {
+    pushFeed(item);
+    announceFeed(item);
+  });
   r.onMessage('stats', (s: number[]) => G().set({ stats: s }));
   r.onMessage('board', (b: BoardRow[]) => G().set({ board: b }));
 

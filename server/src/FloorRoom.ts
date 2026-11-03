@@ -161,7 +161,7 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     }
     const soul = client.auth as Soul;
     const ticket = issueTicket({ ...soul, level: level + 1 });
-    addFeed({ kind: 'judge', name: soul.name, text: `vi phạm ${MAX_STRIKES} lần, bị đày xuống tầng ${level + 1}` });
+    addFeed({ kind: 'banish', name: soul.name, level: level + 1, who: soul.id, text: `vi phạm ${MAX_STRIKES} lần, bị đày xuống tầng ${level + 1}` });
     client.send('banished', { level: level + 1, ticket, msg });
   }
 
@@ -173,11 +173,11 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     const soul = client.auth as Soul;
     notePardon(soul, level, level === 1);
     if (level === 1) {
-      addFeed({ kind: 'pardon', name: soul.name, text: 'sám hối xong, qua cầu Nại Hà đi đầu thai!' });
+      addFeed({ kind: 'pardon', name: soul.name, level: 0, who: soul.id, text: 'sám hối xong, qua cầu Nại Hà đi đầu thai!' });
       this.rebirth(client);
       return;
     }
-    addFeed({ kind: 'pardon', name: soul.name, text: `đủ công đức, được ân xá lên tầng ${level - 1}` });
+    addFeed({ kind: 'pardon', name: soul.name, level: level - 1, who: soul.id, text: `đủ công đức, được ân xá lên tầng ${level - 1}` });
     const ticket = issueTicket({ ...soul, level: level - 1 });
     client.send('pardoned', { level: level - 1, ticket });
   }
@@ -186,6 +186,6 @@ export class FloorRoom extends Room<{ state: FloorState }> {
     const soul = client.auth as Soul;
     const as = REBIRTHS[Math.floor(Math.random() * REBIRTHS.length)];
     client.send('reborn', { as });
-    addFeed({ kind: 'reborn', name: soul.name, text: `đã đầu thai thành ${as}` });
+    addFeed({ kind: 'reborn', name: soul.name, as, who: soul.id, text: `đã đầu thai thành ${as}` });
   }
 }

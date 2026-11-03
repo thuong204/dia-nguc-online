@@ -267,10 +267,13 @@ export function judge(sinText: string): number {
 }
 
 export interface FeedItem {
-  kind: 'judge' | 'pardon' | 'reborn';
+  kind: 'judge' | 'banish' | 'pardon' | 'reborn';
   name: string;
   text: string;
   t: number;
+  level?: number; // tầng liên quan (để loa âm phủ đọc tên tầng, tội)
+  who?: string; // id hồn — để không đọc lại tin của chính mình
+  as?: string; // kiếp sau (khi đầu thai)
 }
 
 export interface BoardRow {

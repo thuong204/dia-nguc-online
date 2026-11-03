@@ -5,7 +5,7 @@ import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postp
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { FLOORS } from '../../../shared/game.ts';
-import { ambience, sfx, speak, stopSpeak, type Speaker } from '../audio.ts';
+import { ambience, hushAnnouncer, sfx, speak, stopSpeak, type Speaker } from '../audio.ts';
 import { enterWithTicket, requestJudgement } from '../net.ts';
 import { toast, useGame } from '../store.ts';
 import { NAMES, opening, questions, react, verdict, type Line } from '../tribunal.ts';
@@ -120,7 +120,11 @@ export default function Tribunal() {
 
   useEffect(() => {
     ambience(0);
-    return () => stopSpeak();
+    const hush = setInterval(() => hushAnnouncer(3000), 1000); // không cho loa đè lời Diêm Vương
+    return () => {
+      clearInterval(hush);
+      stopSpeak();
+    };
   }, []);
 
   // Mỗi dòng mới: hiệu ứng, giọng đọc, chạy chữ

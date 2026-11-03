@@ -270,3 +270,42 @@ export function speak(text: string, who: Speaker) {
 export function stopSpeak() {
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
+
+/* ---------- Loa âm phủ: đọc lần lượt các tin trong Sổ Sinh Tử ---------- */
+const queue: { text: string; who: Speaker }[] = [];
+let talking = false;
+let quietUntil = 0;
+
+/** Tạm im loa (VD đang ở điện Diêm Vương — để không đè lời thoại). */
+export const hushAnnouncer = (ms: number) => (quietUntil = Date.now() + ms);
+
+export function announce(text: string, who: Speaker = 'phan') {
+  if (muted || typeof speechSynthesis === 'undefined' || !pickVoice()) return;
+  queue.push({ text, who });
+  if (queue.length > 3) queue.splice(0, queue.length - 3); // đông quá thì bỏ tin cũ
+  pump();
+}
+function pump() {
+  if (talking || !queue.length) return;
+  if (Date.now() < quietUntil || speechSynthesis.speaking) {
+    setTimeout(pump, 800);
+    return;
+  }
+  const { text, who } = queue.shift()!;
+  const v = pickVoice();
+  if (!v || muted) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.voice = v;
+  u.lang = v.lang;
+  u.pitch = VOICE[who].pitch;
+  u.rate = 1.05;
+  u.volume = 0.85;
+  talking = true;
+  const done = () => {
+    talking = false;
+    setTimeout(pump, 400);
+  };
+  u.onend = done;
+  u.onerror = done;
+  speechSynthesis.speak(u);
+}

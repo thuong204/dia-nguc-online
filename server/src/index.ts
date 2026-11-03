@@ -32,7 +32,7 @@ const gameServer = new Server({
       const hue = Math.floor(Math.random() * 360);
       const id = randomUUID();
       const ticket = issueTicket({ id, name, sin, hue, level });
-      addFeed({ kind: 'judge', name, text: `bị đày xuống tầng ${level} vì: "${sin.length > 80 ? sin.slice(0, 78) + '…' : sin}"` });
+      addFeed({ kind: 'judge', name, level, who: id, text: `bị đày xuống tầng ${level} vì: "${sin.length > 80 ? sin.slice(0, 78) + '…' : sin}"` });
       const body: JudgeResponse = { id, level, ticket, hue };
       res.json(body);
     });
