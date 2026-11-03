@@ -376,7 +376,7 @@ function Censer({ x, z }: { x: number; z: number }) {
 
 function GhostFires() {
   const ref = useRef<THREE.Group>(null);
-  const seeds = useMemo(() => Array.from({ length: 10 }, (_, i) => ({ x: (i % 2 ? 1 : -1) * (7.5 + (i % 3)), z: -8 + i * 1.7, ph: i * 1.3 })), []);
+  const seeds = useMemo(() => Array.from({ length: 10 }, (_, i) => ({ x: (i % 2 ? 1 : -1) * (12.5 + (i % 3)), z: -8 + i * 2.6, ph: i * 1.3 })), []);
   useFrame(({ clock }) => {
     ref.current?.children.forEach((c, i) => {
       const s = seeds[i];
@@ -391,6 +391,24 @@ function GhostFires() {
   );
 }
 
+/** Vệt trăng xiên qua khe mái: các tấm sáng mờ cộng màu, khẽ chập chờn */
+function MoonShafts() {
+  const ref = useRef<THREE.Group>(null);
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#8fa8ff', transparent: true, opacity: 0.025, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), []);
+  useFrame(({ clock }) => {
+    mat.opacity = 0.022 + Math.sin(clock.elapsedTime * 0.4) * 0.008;
+  });
+  return (
+    <group ref={ref}>
+      {[-6, 0, 6, 12].map((z, i) => (
+        <mesh key={z} material={mat} position={[(i % 2 ? 3 : -4), 5.5, z]} rotation={[0, 0, 0.5]}>
+          <planeGeometry args={[1.2, 14]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Mist() {
   const ref = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
@@ -398,9 +416,9 @@ function Mist() {
   });
   return (
     <group ref={ref}>
-      {[-6, -1, 4, 8].map((z, i) => (
+      {[-6, -1, 4, 8, 12, 16].map((z, i) => (
         <mesh key={i} rotation-x={-Math.PI / 2} position={[0, 0.35 + i * 0.05, z]}>
-          <planeGeometry args={[22, 9]} />
+          <planeGeometry args={[34, 9]} />
           <meshBasicMaterial map={dotTexture()} color="#8a7a90" transparent opacity={0.13} depthWrite={false} />
         </mesh>
       ))}
@@ -465,10 +483,15 @@ export function SamLaHall() {
   const sTex = useMemo(screenTex, []);
   const plaque = useMemo(() => textTexture(['森羅殿'], { w: 1024, h: 320, size: 230, serif: true, color: '#ffd27a', bg: '#0e0606', glow: '#ff7a00' }), []);
   const carpet = useMemo(() => brocade('#5a0808', '#a06020'), []);
+  const throneTarget = useMemo(() => {
+    const o = new THREE.Object3D();
+    o.position.set(0, 2, -7.5);
+    return o;
+  }, []);
   return (
     <>
-      <mesh rotation-x={-Math.PI / 2} receiveShadow><planeGeometry args={[44, 44]} /><meshStandardMaterial map={fTex} roughness={0.85} /></mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 1]}><planeGeometry args={[2.8, 14]} /><meshStandardMaterial map={carpet} roughness={0.9} /></mesh>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow><planeGeometry args={[70, 70]} /><meshStandardMaterial map={fTex} roughness={0.85} /></mesh>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.015, 5]}><planeGeometry args={[2.8, 22]} /><meshStandardMaterial map={carpet} roughness={0.9} /></mesh>
       {/* bệ ba bậc */}
       {[0, 1, 2].map((i) => (
         <group key={i}>
@@ -484,21 +507,22 @@ export function SamLaHall() {
       <mesh material={M.gold} position={[0, 7.75, -10.3]}><boxGeometry args={[5.4, 1.8, 0.2]} /></mesh>
       <mesh position={[0, 7.75, -10.18]}><planeGeometry args={[5.1, 1.6]} /><meshBasicMaterial map={plaque} toneMapped={false} /></mesh>
       {/* hàng cột rồng & câu đối dân gian */}
-      {[-6.5, 6.5].map((x) =>
-        [-9, -4.2, 0.6, 5.4].map((z, i) => (
+      {[-11.5, 11.5].map((x) =>
+        [-9, -4.2, 0.6, 5.4, 10.2].map((z, i) => (
           <Pillar key={`${x}${z}`} x={x} z={z} couplet={i === 1 ? (x < 0 ? '陽世奸雄違天害理皆由己' : '陰司報應古往今來放過誰') : undefined} />
         )),
       )}
       {/* xà ngang sơn màu */}
-      {[-9, -4.2, 0.6, 5.4].map((z) => (
+      {/* chỉ giữ xà phía sau — xà phía trước che mất biển hiệu khi nhìn từ cửa điện */}
+      {[-9, -4.2].map((z) => (
         <group key={z} position={[0, 10.3, z]}>
-          <mesh material={M.beam}><boxGeometry args={[14, 0.6, 0.6]} /></mesh>
-          <mesh material={M.gold} position-y={-0.31}><boxGeometry args={[14, 0.05, 0.62]} /></mesh>
-          <mesh material={M.lacquer} position-y={0.36}><boxGeometry args={[14, 0.12, 0.64]} /></mesh>
+          <mesh material={M.beam}><boxGeometry args={[24, 0.6, 0.6]} /></mesh>
+          <mesh material={M.gold} position-y={-0.31}><boxGeometry args={[24, 0.05, 0.62]} /></mesh>
+          <mesh material={M.lacquer} position-y={0.36}><boxGeometry args={[24, 0.12, 0.64]} /></mesh>
         </group>
       ))}
-      {[-6.5, 6.5].map((x) => <mesh key={x} material={M.beam} position={[x, 10.6, -1.8]}><boxGeometry args={[0.55, 0.5, 15]} /></mesh>)}
-      {[[-3.4, -3], [3.4, -3], [-3.4, 3], [3.4, 3], [0, -1]].map(([x, z], i) => <Lantern key={i} x={x} y={7.6} z={z} />)}
+      {[-11.5, 11.5].map((x) => <mesh key={x} material={M.beam} position={[x, 10.6, 0.6]}><boxGeometry args={[0.55, 0.5, 20]} /></mesh>)}
+      {[[-3.4, -3], [3.4, -3], [-3.4, 3], [3.4, 3], [0, -1], [-8, 7], [8, 7]].map(([x, z], i) => <Lantern key={i} x={x} y={7.6} z={z} />)}
       <Censer x={-3.4} z={-2.6} />
       <Censer x={3.4} z={-2.6} />
       {/* Gương Nghiệt bên cạnh bệ */}
@@ -509,10 +533,20 @@ export function SamLaHall() {
       </group>
       <GhostFires />
       <Mist />
-      <pointLight color="#ff5a20" intensity={40} distance={22} position={[0, 6, -5]} />
-      <pointLight color="#ffb070" intensity={5} distance={8} position={[0, 4, -5.2]} />
-      <pointLight color="#3a8aff" intensity={14} distance={12} position={[5, 3.5, -6]} />
-      <pointLight color="#3a6aff" intensity={8} distance={14} position={[-6, 3, 3]} />
+      {/* ánh trăng lạnh lọt qua mái, đèn lửa chỉ le lói quanh ngai */}
+      <directionalLight color="#b4c6ff" intensity={1.3} position={[-14, 22, 10]} castShadow shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} />
+      <MoonShafts />
+      {/* rọi sáng ngai và các quan để luôn nhìn rõ Diêm Vương */}
+      <spotLight color="#ffd0a0" intensity={60} distance={30} angle={0.55} penumbra={0.6} position={[0, 9.5, 2]} target={throneTarget} />
+      <primitive object={throneTarget} />
+      <pointLight color="#ff6a30" intensity={22} distance={18} position={[0, 6, -5]} />
+      <pointLight color="#ffb070" intensity={6} distance={9} position={[0, 4, -5.2]} />
+      {/* ánh trăng phủ lên hàng oan hồn đang quỳ */}
+      <pointLight color="#9ab0ff" intensity={30} distance={24} position={[0, 8, 8]} />
+      <pointLight color="#3a8aff" intensity={10} distance={12} position={[5, 3.5, -6]} />
+      <pointLight color="#4a6aff" intensity={6} distance={18} position={[-8, 4, 8]} />
+      <pointLight color="#4a6aff" intensity={6} distance={18} position={[8, 4, 12]} />
     </>
   );
 }
@@ -541,11 +575,11 @@ export function Court() {
       {/* Ngưu Đầu, Mã Diện hầu hai bên */}
       <group position={[-5.2, 0.9, -5.4]} rotation-y={0.7} scale={0.85}><GuardModel kind="bull" /></group>
       <group position={[5.2, 0.9, -5.4]} rotation-y={-0.7} scale={0.85}><GuardModel kind="horse" /></group>
-      {/* Hắc Bạch Vô Thường áp giải */}
-      <group position={[-2.1, 0, 1.6]} rotation-y={0.55} scale={[1, 1.12, 1]}>
+      {/* Hắc Bạch Vô Thường kẹp hai bên chỗ hồn quỳ khai tội (CONFESS_SPOT), mặt hướng vào hồn, hơi chếch về phía ngai */}
+      <group position={[-1.7, 0, -1.0]} rotation-y={Math.PI / 2 + 0.5} scale={[1, 1.12, 1]}>
         <Official robe={blackRobe} trim={grey} skin="#2e2a2a" hat="tall" hatColor="#111" hatText="天下太平" brows="fierce" hold="chain" slim />
       </group>
-      <group position={[2.1, 0, 1.6]} rotation-y={-0.55} scale={[1, 1.12, 1]}>
+      <group position={[1.7, 0, -1.0]} rotation-y={-(Math.PI / 2 + 0.5)} scale={[1, 1.12, 1]}>
         <Official robe={whiteRobe} trim={grey} skin="#f2efe8" hat="tall" hatColor="#eeeeea" hatText="一見生財" tongue hold="staff" slim />
       </group>
     </>

@@ -1,9 +1,5 @@
 import { create } from 'zustand';
 import type { BoardRow, FeedItem } from '../../shared/game.ts';
-import type { QuizView } from '../../shared/quiz.ts';
-
-/** Gợi ý hành động khi đang đứng gần một trạm (null nếu không có). */
-export type Near = string | null;
 
 export type Screen = 'judge' | 'tribunal' | 'game' | 'reborn';
 
@@ -13,22 +9,25 @@ interface GameState {
   soulId: string;
   board: BoardRow[];
   level: number;
-  progress: number;
   need: number;
   myId: string;
   roomKey: number;
   meReady: boolean;
   others: string[];
   bubbles: Record<string, string>;
-  near: Near;
-  goal: string;
-  quiz: QuizView | null;
   objIds: string[];
   feed: FeedItem[];
   stats: number[];
   toast: string | null;
   rebornAs: string;
   fading: boolean;
+  /** Mình đang chịu hình: loại (0 = không) & lượt (để chạy lại thanh đếm) */
+  pain: number;
+  painSeq: number;
+  /** Đang đứng ở Pháp Trường (để hiện nút nhận tội) */
+  nearExec: boolean;
+  /** Thời điểm quỷ sai tới bắt nếu chưa nhận tội (ms, 0 = không) */
+  seizeAt: number;
   set: (p: Partial<GameState>) => void;
 }
 
@@ -38,22 +37,22 @@ export const useGame = create<GameState>((set) => ({
   soulId: '',
   board: [],
   level: 0,
-  progress: 0,
   need: 1,
   myId: '',
   roomKey: 0,
   meReady: false,
   others: [],
   bubbles: {},
-  near: null,
-  goal: '',
-  quiz: null,
   objIds: [],
   feed: [],
   stats: new Array(18).fill(0),
   toast: null,
   rebornAs: '',
   fading: false,
+  pain: 0,
+  painSeq: 0,
+  nearExec: false,
+  seizeAt: 0,
   set: (p) => set(p),
 }));
 

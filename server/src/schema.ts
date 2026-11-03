@@ -9,37 +9,20 @@ export const Player = schema(
     y: t.float32(),
     z: t.float32(),
     r: t.float32(),
-    merit: t.uint16(), // công đức riêng ở tầng hiện tại — đủ thì được lên tầng
-    strikes: t.uint8(), // số lần vi phạm ở tầng hiện tại
+    slot: t.int8(), // cọc ở Pháp Trường (-1 = chưa nhận tội)
+    served: t.uint8(), // số hiệp hình phạt đã chịu ở tầng hiện tại
+    pain: t.uint8(), // đang chịu hình (0 = không; xem PAIN trong shared/game.ts)
+    esc: t.uint8(), // đang bị áp giải tới cọc: 0 = không, 1 = tự nhận tội, 2 = chống cự nên bị cưỡng chế
   },
   'Player',
 );
 export type Player = InstanceType<typeof Player>;
 
-/** Vật thể chung cho mọi hoạt động: tin nhắn, ghế, ô sàn, tủ server... */
-export const Obj = schema(
-  {
-    kind: t.string(),
-    x: t.float32(),
-    y: t.float32(),
-    z: t.float32(),
-    s: t.uint8(), // trạng thái
-    hp: t.uint8(),
-    owner: t.string(),
-  },
-  'Obj',
-);
-export type Obj = InstanceType<typeof Obj>;
-
 export const FloorState = schema(
   {
     level: t.uint8(),
-    progress: t.uint16(),
-    need: t.uint16(),
-    goal: t.string(),
-    quiz: t.string(), // JSON QuizView (tầng 1)
+    need: t.uint8(), // số hiệp phải chịu ở mỗi tầng
     players: t.map(Player),
-    objects: t.map(Obj),
   },
   'FloorState',
 );

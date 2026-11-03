@@ -3,12 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
-import { SPAWN } from '../../../shared/game.ts';
+import { EXEC_SPOTS, SPAWN, nearExec } from '../../../shared/game.ts';
 import { players, send } from '../net.ts';
 import { useGame } from '../store.ts';
-import { nearHint } from '../interact.ts';
 import { fx, isTyping } from '../fx.ts';
-import { Ghost } from './Ghost.tsx';
+import { Convict } from './Convict.tsx';
+import { painOf } from './torment.tsx';
 
 export type Controls = 'forward' | 'back' | 'left' | 'right' | 'run' | 'jump';
 
@@ -39,6 +39,7 @@ export function Player() {
   const facing = useRef(Math.PI);
   const jumpHeld = useRef(false);
   const sent = useRef({ t: 0, x: 0, y: 0, z: 0, r: 0 });
+  const prevSlot = useRef(-1);
 
   // Kéo chuột xoay camera, bấm (không kéo) để đi tới, cuộn để zoom
   useEffect(() => {
@@ -94,16 +95,30 @@ export function Player() {
     const typing = isTyping();
     const pos = b.translation();
 
+    // đang chịu hình: không cử động được, camera quay cận cảnh
+    const pain = painOf(myId);
+    const st = useGame.getState();
+    if ((pain?.kind ?? 0) !== st.pain) st.set({ pain: pain?.kind ?? 0, painSeq: st.painSeq + (pain ? 1 : 0) });
+    // đã nhận tội: bị trói vào cọc ở Pháp Trường cho tới khi chịu xong
+    const slot = me.slot ?? -1;
+    const bound = slot >= 0 && !!EXEC_SPOTS[slot];
+    // vừa được cởi trói: bước xuống khỏi cọc tới chỗ server đặt
+    if (prevSlot.current >= 0 && slot < 0) b.setTranslation({ x: me.x, y: Math.max(pos.y, HALF), z: me.z }, true);
+    prevSlot.current = slot;
+    const led = !bound && (me.esc ?? 0) > 0; // đang bị quỷ sai áp giải: server dắt đi
+    const held = pain || bound || led;
+    if (held) target.current = null;
+
     // hướng đi theo camera
     let ix = 0, iz = 0;
-    if (!typing) {
+    if (!typing && !held) {
       if (keys.forward) iz += 1;
       if (keys.back) iz -= 1;
       if (keys.left) ix -= 1;
       if (keys.right) ix += 1;
     }
     const joyLen = Math.hypot(fx.joy.x, fx.joy.y);
-    if (joyLen > 0.15) {
+    if (joyLen > 0.15 && !held) {
       ix = fx.joy.x;
       iz = -fx.joy.y;
     }
@@ -128,7 +143,7 @@ export function Player() {
 
     // chạm đất?
     const hit = world.castRay(new rapier.Ray({ x: pos.x, y: pos.y - HALF + 0.05, z: pos.z }, { x: 0, y: -1, z: 0 }), 0.2, true, undefined, undefined, undefined, b);
-    const wantJump = (keys.jump && !typing) || fx.jumpRequested;
+    const wantJump = !held && ((keys.jump && !typing) || fx.jumpRequested);
     let vy = lv.y;
     if (wantJump && !jumpHeld.current && hit) vy = 9;
     jumpHeld.current = wantJump;
@@ -141,29 +156,57 @@ export function Player() {
       target.current = null;
       b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     }
+    if (bound) {
+      const s = EXEC_SPOTS[slot];
+      if (Math.abs(pos.x - s.x) + Math.abs(pos.z - s.z) > 0.05) {
+        b.setTranslation({ x: s.x, y: Math.max(pos.y, HALF), z: s.z }, true);
+        pos.x = s.x;
+        pos.z = s.z;
+      }
+      b.setLinvel({ x: 0, y: Math.min(0, lv.y), z: 0 }, true);
+      facing.current = 0; // quay mặt ra đám đông
+    }
+    if (led) {
+      // bám theo vị trí server đang dắt
+      const k2 = 1 - Math.exp(-8 * dt);
+      const nx = pos.x + (me.x - pos.x) * k2, nz = pos.z + (me.z - pos.z) * k2;
+      if (Math.hypot(me.x - pos.x, me.z - pos.z) > 0.05) facing.current = Math.atan2(me.x - pos.x, me.z - pos.z);
+      b.setTranslation({ x: nx, y: Math.max(pos.y, HALF), z: nz }, true);
+      b.setLinvel({ x: 0, y: Math.min(0, lv.y), z: 0 }, true);
+      g.userData.lean = Math.min(1, Math.hypot(me.x - pos.x, me.z - pos.z) * 2);
+      pos.x = nx;
+      pos.z = nz;
+    }
+    const near = !bound && nearExec(pos.x, pos.z);
+    if (st.nearExec !== near) st.set({ nearExec: near });
 
     // hình ảnh hồn ma
     const footY = pos.y - HALF;
     g.position.set(pos.x, footY, pos.z);
     g.rotation.y = lerpAngle(g.rotation.y, facing.current, 1 - Math.exp(-14 * dt));
-    g.userData.lean = len ? speed / 10 : 0;
+    if (!led) g.userData.lean = len ? speed / 10 : 0;
 
     // camera theo sau
-    const { pitch, dist } = cam.current;
-    lookAt.set(pos.x, footY + 1.8, pos.z);
-    tmpV.set(Math.sin(yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(yaw) * Math.cos(pitch) * dist).add(lookAt);
+    let { pitch, dist } = cam.current;
+    let camYaw = yaw;
+    if (pain) {
+      // cận cảnh, xoay chậm quanh mình như thước phim hành hình
+      cam.current.yaw += dt * 0.35;
+      camYaw = cam.current.yaw;
+      dist = Math.min(dist, 5.2);
+      pitch = 0.22;
+    }
+    lookAt.set(pos.x, footY + (pain ? 1.6 : 1.8), pos.z);
+    tmpV.set(Math.sin(camYaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(camYaw) * Math.cos(pitch) * dist).add(lookAt);
     tmpV.y = Math.max(tmpV.y, 0.6);
-    camera.position.lerp(tmpV, 1 - Math.exp(-10 * dt));
+    camera.position.lerp(tmpV, 1 - Math.exp(-(pain ? 4 : 10) * dt));
+    if (pain) camera.position.add(tmpV.set((Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.12, 0)); // rung màn hình
     camera.lookAt(lookAt);
-
-    // đang đứng gần chỗ nào?
-    const near = nearHint(level, pos.x, pos.z);
-    if (useGame.getState().near !== near) useGame.getState().set({ near });
 
     // gửi vị trí ~15 lần/giây
     const s = sent.current;
     s.t += dt;
-    if (s.t > 1 / 15) {
+    if (s.t > 1 / 15 && !led) {
       s.t = 0;
       const r = Math.round(facing.current * 100) / 100;
       if (Math.abs(s.x - pos.x) + Math.abs(s.z - pos.z) + Math.abs(s.y - footY) > 0.02 || s.r !== r) {
@@ -181,7 +224,7 @@ export function Player() {
       <RigidBody ref={body} colliders={false} position={[me.x, HALF + 0.3, me.z]} enabledRotations={[false, false, false]} canSleep={false} ccd>
         <CapsuleCollider args={[0.5, 0.6]} friction={0} />
       </RigidBody>
-      <Ghost ref={ghost} hue={me.hue} id={myId} name={me.name} me />
+      <Convict ref={ghost} hue={me.hue} id={myId} name={me.name} me />
     </>
   );
 }

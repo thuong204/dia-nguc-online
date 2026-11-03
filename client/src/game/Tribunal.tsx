@@ -1,210 +1,286 @@
-// Điện Diêm Vương: Hắc Bạch Vô Thường dẫn hồn vào, Diêm La Vương hỏi tội rồi phán tầng.
+// Chánh Điện: các oan hồn quỳ ở các ô trong điện, lần lượt lên trước án Diêm Vương khai tội.
+// Cả điện cùng nghe từng lượt khai; chỉ người đang khai mới được chọn lời khai.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing';
-import { ToneMappingMode } from 'postprocessing';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Bloom, EffectComposer, Noise, ToneMapping, Vignette } from '@react-three/postprocessing';
+import { BlendFunction, ToneMappingMode } from 'postprocessing';
+import type { Room } from '@colyseus/sdk';
 import * as THREE from 'three';
-import { FLOORS } from '../../../shared/game.ts';
+import { FLOORS, type JudgeResponse } from '../../../shared/game.ts';
+import { CONFESS_SPOT, HALL_CELLS, type CourtLine, type Who } from '../../../shared/court.ts';
 import { ambience, hushAnnouncer, sfx, speak, stopSpeak, type Speaker } from '../audio.ts';
-import { enterWithTicket, requestJudgement } from '../net.ts';
+import { enterHall, enterWithTicket, hallSouls } from '../net.ts';
 import { toast, useGame } from '../store.ts';
-import { NAMES, opening, questions, react, verdict, type Line } from '../tribunal.ts';
-import { Ghost } from './Ghost.tsx';
+import { NAMES } from '../tribunal.ts';
+import { Convict } from './Convict.tsx';
 import { Court, SamLaHall } from './Netherworld.tsx';
 
 /* ---------------- Cảnh 3D ---------------- */
-const SPOT: Record<Speaker | 'me', [number, number, number]> = {
-  diem: [0, 4.9, -8.2],
-  phan: [-3.3, 3.1, -6.6],
-  hac: [-2.1, 2.5, 1.6],
-  bach: [2.1, 2.5, 1.6],
-  manh: [0, 1.5, 0],
-  me: [0, 1.4, 2.8],
-};
+const EXIT = { x: 0, z: 22 };
 
-function CameraRig({ who }: { who: Speaker | 'me' }) {
-  const look = useRef(new THREE.Vector3(0, 3, -4));
-  useFrame(({ camera, clock }, dt) => {
-    const t = SPOT[who];
-    const k = 1 - Math.exp(-1.8 * Math.min(dt, 0.05));
-    look.current.lerp(new THREE.Vector3(t[0], t[1], t[2]), k);
-    // camera lùi về phía cửa điện, hơi lệch theo người đang nói
-    const near = who === 'diem' ? 8.5 : who === 'phan' ? 7.5 : 6.5;
-    const goal = new THREE.Vector3(t[0] * 0.5 + Math.sin(clock.elapsedTime * 0.15) * 0.5, 2.6 + t[1] * 0.35, Math.min(11, t[2] + near));
-    camera.position.lerp(goal, k * 0.7);
-    camera.lookAt(look.current);
+/** Một khung hình cố định: thấy cả ngai Diêm Vương, chỗ khai tội và mọi hồn đang quỳ. */
+const CAM_POS = new THREE.Vector3(0, 11.5, 24);
+const CAM_LOOK = new THREE.Vector3(0, 1.5, -1);
+function CameraRig() {
+  const { camera, size } = useThree();
+  // đẩy khung hình lên trên để hàng oan hồn không bị khung thoại ở dưới che mất
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    cam.setViewOffset(size.width, size.height, 0, size.height * 0.15, size.width, size.height);
+    return () => cam.clearViewOffset();
+  }, [camera, size.width, size.height]);
+  useFrame(() => {
+    camera.position.copy(CAM_POS);
+    camera.lookAt(CAM_LOOK);
   });
   return null;
 }
 
-function Scene({ who, hue }: { who: Speaker | 'me'; hue: number }) {
+/** Một hồn trong điện: quỳ ở ô của mình, tới lượt thì đi lên trước án, khai xong thì bị áp giải ra cổng. */
+function HallFigure({ id, me }: { id: string; me: boolean }) {
+  const ref = useRef<THREE.Group>(null);
+  const s = hallSouls.get(id);
+  useFrame((_, rawDt) => {
+    const g = ref.current, cur = hallSouls.get(id);
+    if (!g || !cur) return;
+    const cell = HALL_CELLS[cur.cell] ?? HALL_CELLS[0];
+    const tgt = cur.state === 'up' ? CONFESS_SPOT : cur.state === 'done' ? EXIT : cell;
+    if (!g.userData.init) {
+      g.userData.init = true;
+      g.position.set(cell.x, 0, cell.z);
+      g.rotation.y = Math.PI;
+    }
+    const dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, d = Math.hypot(dx, dz);
+    const step = Math.min(d, 2.6 * Math.min(rawDt, 0.05));
+    if (d > 0.05) {
+      g.position.x += (dx / d) * step;
+      g.position.z += (dz / d) * step;
+    }
+    const walking = d > 0.15;
+    g.userData.kneel = !walking;
+    g.userData.lean = walking ? 0.5 : 0;
+    const face = walking ? Math.atan2(dx, dz) : Math.PI; // quỳ thì quay mặt về phía ngai Diêm Vương
+    g.rotation.y += (((face - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * 0.15;
+  });
+  if (!s) return null;
+  return <Convict ref={ref} id={id} hue={s.hue} name={s.name} me={me} />;
+}
+
+function Scene({ ids, myId }: { ids: string[]; myId: string }) {
   return (
-    <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 48, position: [0, 3.2, 15] }}>
-      <color attach="background" args={['#070203']} />
-      <fogExp2 attach="fog" args={['#070203', 0.038]} />
-      <hemisphereLight args={['#ff9a6a', '#140405', 0.45]} />
-      <ambientLight intensity={0.12} />
+    <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 55, position: [0, 9.6, 23] }}>
+      {/* đêm trăng âm phủ: lạnh, mờ, sương xanh */}
+      <color attach="background" args={['#04060c']} />
+      <fogExp2 attach="fog" args={['#0a0e1c', 0.016]} />
+      <hemisphereLight args={['#8a9ad0', '#1a0c10', 0.75]} />
+      <ambientLight color="#8090c0" intensity={0.3} />
       <SamLaHall />
       <Court />
-      <group position={[0, 0, 2.8]} rotation-y={Math.PI}><Ghost hue={hue} me /></group>
-      <CameraRig who={who} />
+      {/* các ô quỳ */}
+      {HALL_CELLS.map((c, i) => (
+        <mesh key={i} position={[c.x, 0.02, c.z]} rotation-x={-Math.PI / 2}>
+          <planeGeometry args={[1.3, 1.3]} />
+          <meshStandardMaterial color="#2a0c08" roughness={0.9} />
+        </mesh>
+      ))}
+      <mesh position={[CONFESS_SPOT.x, 0.025, CONFESS_SPOT.z]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[0.9, 32]} />
+        <meshStandardMaterial color="#3a0a06" emissive="#2a0400" roughness={0.6} />
+      </mesh>
+      {ids.map((id) => (
+        <HallFigure key={id} id={id} me={id === myId} />
+      ))}
+      <CameraRig />
       <EffectComposer>
         <Bloom mipmapBlur luminanceThreshold={0.85} intensity={1} />
         <Vignette offset={0.2} darkness={0.85} />
+        <Noise premultiply blendFunction={BlendFunction.OVERLAY} opacity={0.07} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
     </Canvas>
   );
 }
 
-/* ---------------- Hộp thoại ---------------- */
+/* ---------------- Giao diện ---------------- */
+function lineSfx(l: CourtLine) {
+  if (l.text.startsWith('Phán!')) sfx.gong();
+  else if (l.text.includes('Gương Nghiệt')) sfx.whoosh();
+  else if (l.who === 'hac') sfx.chain();
+  else if (l.opts) sfx.heartbeat();
+}
+
 export default function Tribunal() {
   const name = useGame((s) => s.soulName);
   const hue = useMemo(() => Math.floor(Math.random() * 360), []);
-  const [lines, setLines] = useState<Line[]>(() => opening(name));
-  const [i, setI] = useState(0);
-  const [shown, setShown] = useState(0);
-  const [answer, setAnswer] = useState('');
+  const [ids, setIds] = useState<string[]>([]);
+  const [turn, setTurn] = useState('');
+  const [line, setLine] = useState<CourtLine | null>(null);
+  const [verdict, setVerdict] = useState<(JudgeResponse & { at: number }) | null>(null);
   const [busy, setBusy] = useState(false);
-  const qs = useRef<Line[]>(questions());
-  const answers = useRef<string[]>([]);
-  const result = useRef<{ id: string; level: number; ticket: string; at: number } | null>(null);
+  const [, tick] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const room = useRef<Room | null>(null);
+  const lastN = useRef(0);
 
-  const line = lines[i];
-  const typing = !!line && shown < line.text.length;
-  const finished = i === lines.length - 1 && !!result.current && !typing;
-
+  // vào điện
   useEffect(() => {
+    let alive = true;
     ambience(0);
     const hush = setInterval(() => hushAnnouncer(3000), 1000); // không cho loa đè lời Diêm Vương
+    enterHall(name, hue, {
+      souls: setIds,
+      turn: setTurn,
+      line: setLine,
+      sentenced: (r) => {
+        sfx.banish();
+        setVerdict({ ...r, at: Date.now() });
+      },
+    })
+      .then((r) => {
+        if (!alive) return void r.leave();
+        room.current = r;
+      })
+      .catch(() => {
+        toast('Chánh Điện đang đóng cửa... thử lại sau');
+        useGame.getState().set({ screen: 'judge' });
+      });
+    const t = setInterval(() => tick((n) => n + 1), 500); // cập nhật hàng chờ
     return () => {
+      alive = false;
       clearInterval(hush);
+      clearInterval(t);
       stopSpeak();
+      room.current?.leave();
+      room.current = null;
     };
-  }, []);
+  }, [name, hue]);
 
-  // Mỗi dòng mới: hiệu ứng, giọng đọc, chạy chữ
+  // dòng thoại mới: âm thanh + giọng đọc; chữ hiện ngay cả câu (không chạy từng chữ).
+  // Chỉ phát khi sang dòng mới (line.n) — server phát lại cùng dòng mỗi giây để đếm ngược.
+  const lineN = line?.n ?? 0;
   useEffect(() => {
-    if (!line) return;
-    setShown(0);
-    if (line.sfx) sfx[line.sfx]();
-    if (line.who !== 'me') speak(line.text, line.who);
-    let n = 0;
-    const t = setInterval(() => {
-      n += 1;
-      if (n % 3 === 0) sfx.tick();
-      setShown(n);
-      if (n >= line.text.length) clearInterval(t);
-    }, 26);
-    return () => clearInterval(t);
-  }, [line]);
+    if (!line || line.n === lastN.current) return;
+    lastN.current = line.n;
+    lineSfx(line);
+    if (line.who !== 'me') speak(line.text, line.who as Speaker);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineN]);
 
+  // nhận án: tự xuống tầng sau vài giây
   useEffect(() => {
-    if (line?.ask && !typing) input.current?.focus();
-  }, [line, typing]);
-
-  async function advance() {
-    if (!line || busy) return;
-    if (typing) return setShown(line.text.length);
-    if (line.ask) return;
-    if (finished) return descend();
-    if (i < lines.length - 1) return setI(i + 1);
-    // hết đoạn hiện tại → câu hỏi tiếp theo hoặc phán quyết
-    const next = qs.current[answers.current.length];
-    if (next) {
-      setLines((l) => [...l, next]);
-      setI(i + 1);
-    } else {
-      setBusy(true);
-      try {
-        const r = await requestJudgement(name, answers.current.join('. '));
-        result.current = { ...r, at: Date.now() };
-        setLines((l) => [...l, ...verdict(name, r.level)]);
-        setI(i + 1);
-      } catch {
-        toast('Âm phủ đang quá tải, thử lại sau nhé!');
-      }
-      setBusy(false);
-    }
-  }
-
-  function submit(text: string) {
-    const a = text.trim().slice(0, 90);
-    if (!a || !line?.ask) return;
-    answers.current.push(a);
-    setAnswer('');
-    setLines((l) => [...l, { who: 'me', text: a }, react(a)]);
-    setI(i + 1);
-  }
+    if (!verdict) return;
+    const t = setTimeout(descend, 9000);
+    return () => clearTimeout(t);
+  }, [verdict]);
 
   async function descend() {
-    const r = result.current!;
+    if (!verdict || busy) return;
     setBusy(true);
-    sfx.banish();
     try {
-      // vé chỉ có hạn 60 giây — xin vé mới nếu người chơi đọc lâu
-      const t = Date.now() - r.at > 50_000 ? await requestJudgement(name, answers.current.join('. ')) : r;
-      useGame.getState().set({ soulId: t.id });
-      await enterWithTicket(t.level, t.ticket);
+      useGame.getState().set({ soulId: verdict.id });
+      await room.current?.leave();
+      room.current = null;
+      await enterWithTicket(verdict.level, verdict.ticket);
       useGame.getState().set({ screen: 'game' });
     } catch {
-      toast('Lạc đường xuống tầng... thử lại nhé');
-      setBusy(false);
+      toast('Lạc đường xuống tầng... hãy vào điện lại');
+      useGame.getState().set({ screen: 'judge' });
     }
   }
 
+  const myId = room.current?.sessionId ?? '';
+  const mine = !!myId && turn === myId;
+  const queue = ids
+    .map((id) => ({ id, s: hallSouls.get(id)! }))
+    .filter((q) => q.s && q.s.state !== 'done')
+    // đúng thứ tự server gọi: người đang khai, rồi người thật (đến trước lên trước), rồi oan hồn ảo
+    .sort((a, b) => Number(b.id === turn) - Number(a.id === turn) || Number(a.s.bot) - Number(b.s.bot) || a.s.at - b.s.at);
+  const myPos = queue.findIndex((q) => q.id === myId);
+  const confessor = hallSouls.get(turn);
+  const answering = mine && !!line?.opts && !verdict;
   useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.tagName !== 'INPUT') {
-        e.preventDefault();
-        advance();
-      }
-    };
-    addEventListener('keydown', k);
-    return () => removeEventListener('keydown', k);
-  });
-
-  const who = line?.who ?? 'diem';
-  const isMe = who === 'me';
-  const level = result.current?.level;
+    if (answering) input.current?.focus();
+  }, [answering, line?.n]);
+  const who = line?.who ?? null;
+  const vf = verdict ? FLOORS[verdict.level - 1] : null;
 
   return (
     <section className="tribunal">
       <div className="view">
-        <Scene who={who} hue={hue} />
+        <Scene ids={ids} myId={myId} />
       </div>
-      {line && (
-        <div className={`dialog ${isMe ? 'me' : who}`} onClick={advance}>
-          <div className="dialog-name">{who === 'me' ? name : NAMES[who]}</div>
-          <div className="dialog-text">{isMe ? `“${line.text}”` : line.text.slice(0, shown)}</div>
-          {line.ask && !typing ? (
-            <form
-              className="dialog-answer"
-              onClick={(e) => e.stopPropagation()}
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit(answer);
-              }}
-            >
+
+      <aside className="hall-queue">
+        <h3>⚖️ Chánh Điện · Sâm La Điện</h3>
+        <p className="small">Các oan hồn quỳ chờ. Lần lượt từng người lên trước án khai tội, Diêm Vương phán tầng theo mức độ tội.</p>
+        <ol>
+          {queue.map((q, i) => (
+            <li key={q.id} className={q.id === turn ? 'cur' : q.id === myId ? 'me' : ''}>
+              <span className="dot" style={{ background: `hsl(${q.s.hue} 55% 45%)` }} />
+              <span className="nm">{q.s.name}{q.id === myId ? ' (bạn)' : q.s.bot ? ' · oan hồn' : ''}</span>
+              <span className="st">{q.id === turn ? 'đang khai' : `#${i + 1}`}</span>
+            </li>
+          ))}
+        </ol>
+        {!verdict && myPos > 0 && !mine && <p className="small">Còn {myPos} hồn nữa mới tới lượt bạn. Hãy quỳ đợi…</p>}
+      </aside>
+
+      {verdict && vf ? (
+        <div className="dialog verdict">
+          <div className="dialog-name">Phán quyết</div>
+          <div className="dialog-text">
+            Bạn bị đày xuống <b>Tầng {verdict.level} · {vf.name}</b>.<br />
+            <span className="small">Tội: {vf.sin} — {vf.punishment}</span>
+          </div>
+          <button className="primary descend" disabled={busy} onClick={descend}>
+            ⛓️ Nhận án & xuống Tầng {verdict.level}
+          </button>
+        </div>
+      ) : line ? (
+        <div className={`dialog ${who === 'me' ? 'me' : who}`}>
+          <div className="dialog-name">{who === 'me' ? line.name : NAMES[who as Speaker]}</div>
+          <div className="dialog-text">{who === 'me' ? `“${line.text}”` : line.text}</div>
+          {line.opts && (mine ? (
+            // chỉ người đang khai mới được chọn lời khai
+            <div className="dialog-answer">
               <div className="chips">
-                {line.chips?.map((c) => (
-                  <button type="button" key={c} onClick={() => submit(c)}>{c}</button>
+                {line.opts.map((o, i) => (
+                  <button type="button" key={i} onClick={() => room.current?.send('answer', i)}>{o}</button>
                 ))}
               </div>
-              <div className="row">
-                <input ref={input} value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={90} placeholder="Hoặc tự khai bằng lời của ngươi…" />
-                <button className="primary" type="submit">Khai</button>
-              </div>
-            </form>
-          ) : finished ? (
-            <button className="primary descend" disabled={busy} onClick={(e) => (e.stopPropagation(), descend())}>
-              ⛓️ Nhận án & xuống Tầng {level} · {FLOORS[level! - 1].name}
-            </button>
+              <div className="dialog-next">Tới lượt bạn — chọn gợi ý hoặc tự khai ở ô bên dưới · còn {line.left ?? 0}s</div>
+            </div>
           ) : (
-            <div className="dialog-next">{busy ? 'Diêm Vương đang lật Sổ Sinh Tử…' : typing ? '' : 'Bấm hoặc Enter ▶'}</div>
-          )}
+            // người khác chỉ nghe và nhìn
+            <div className="dialog-next">⏳ {confessor?.name ?? 'Hồn'} đang khai…</div>
+          ))}
         </div>
+      ) : (
+        <div className="dialog">
+          <div className="dialog-text">{ids.length ? 'Hắc Bạch Vô Thường đang áp giải hồn kế tiếp…' : 'Đang vào Chánh Điện…'}</div>
+        </div>
+      )}
+      {/* ô trả lời Diêm Vương: chỉ mở khi tới lượt mình bị hỏi */}
+      {!verdict && (
+        <form
+          className={answering ? 'hall-input answering' : 'hall-input'}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const v = input.current!.value.trim();
+            if (!v || !answering) return;
+            room.current?.send('answerText', v);
+            input.current!.value = '';
+          }}
+        >
+          <input
+            ref={input}
+            maxLength={90}
+            disabled={!answering}
+            placeholder={answering ? 'Trả lời Diêm Vương bằng lời của ngươi…' : mine ? 'Nghe Diêm Vương hỏi…' : 'Chờ tới lượt bạn lên khai…'}
+            autoComplete="off"
+          />
+          <button className="primary" type="submit" disabled={!answering}>Khai</button>
+        </form>
       )}
     </section>
   );

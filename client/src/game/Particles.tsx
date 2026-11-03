@@ -13,7 +13,67 @@ type P = { x: number; y: number; z: number; vx: number; vy: number; vz: number; 
 /** Một hệ hạt chung: tàn lửa, lửa lò vàng mã, hơi canh, tia lửa cối xay. */
 const BURST: Record<string, [number, number, number]> = {
   gold: [2.5, 1.7, 0.4], blue: [0.4, 1.2, 3], white: [2, 2, 2.2], green: [0.4, 2.6, 0.8],
+  smoke: [0.55, 0.5, 0.45],
 };
+
+/** Máu: giọt đỏ sẫm, không phát sáng, rơi theo trọng lực rồi đọng lại thành vết trên nền. */
+const BMAX = 1500;
+type D = { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; stuck: boolean; s: number };
+function Blood() {
+  const pool = useRef<D[]>([]);
+  const { geo, pos, col } = useMemo(() => {
+    const pos = new Float32Array(BMAX * 3), col = new Float32Array(BMAX * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage));
+    return { geo, pos, col };
+  }, []);
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05);
+    for (const ev of fx.blood.splice(0)) {
+      for (let i = 0; i < 26 && pool.current.length < BMAX; i++) {
+        const a = Math.random() * Math.PI * 2, sp = 0.6 + Math.random() * 2.6;
+        pool.current.push({ x: ev.x, y: ev.y, z: ev.z, vx: Math.cos(a) * sp, vy: 0.5 + Math.random() * 3, vz: Math.sin(a) * sp, life: 5 + Math.random() * 3, stuck: false, s: 0.5 + Math.random() * 0.5 });
+      }
+    }
+    const arr = pool.current;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const d = arr[i];
+      d.life -= dt;
+      if (d.life <= 0) {
+        arr[i] = arr[arr.length - 1];
+        arr.pop();
+        continue;
+      }
+      if (d.stuck) continue;
+      d.vy -= 14 * dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.z += d.vz * dt;
+      if (d.y <= 0.04) {
+        d.y = 0.04;
+        d.stuck = true; // đọng lại trên nền
+      }
+    }
+    for (let i = 0; i < arr.length; i++) {
+      const d = arr[i], f = Math.min(1, d.life / 1.5) * d.s;
+      pos[i * 3] = d.x;
+      pos[i * 3 + 1] = d.y;
+      pos[i * 3 + 2] = d.z;
+      col[i * 3] = 0.38 * f;
+      col[i * 3 + 1] = 0.01 * f;
+      col[i * 3 + 2] = 0.02 * f;
+    }
+    geo.setDrawRange(0, arr.length);
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+  });
+  return (
+    <points geometry={geo} frustumCulled={false}>
+      <pointsMaterial size={0.13} map={dotTexture()} vertexColors transparent depthWrite={false} sizeAttenuation alphaTest={0.05} />
+    </points>
+  );
+}
 
 export function Particles() {
   const level = useGame((s) => s.level);
@@ -56,7 +116,9 @@ export function Particles() {
 
     // sự kiện
     for (const ev of fx.queue.splice(0)) {
-      if (ev.kind === 'burst') {
+      if (ev.kind === 'burst' && ev.c === 'blood') {
+        fx.blood.push({ x: ev.x ?? 0, y: ev.y ?? 1, z: ev.z ?? 0 });
+      } else if (ev.kind === 'burst') {
         const [r, g, b] = BURST[ev.c ?? 'gold'] ?? BURST.gold;
         for (let i = 0; i < 40; i++) emit((ev.x ?? 0) + rnd(1), ev.y ?? 2, (ev.z ?? 0) + rnd(1), rnd(7), 2 + Math.random() * 6, rnd(7), 0.9 + Math.random() * 0.5, r, g, b, -9);
       } else if (ev.kind === 'burn') {
@@ -96,8 +158,11 @@ export function Particles() {
   });
 
   return (
+    <>
+    <Blood />
     <points ref={pts} geometry={geo} frustumCulled={false}>
       <pointsMaterial size={0.32} map={dotTexture()} vertexColors transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} sizeAttenuation />
     </points>
+    </>
   );
 }

@@ -1,8 +1,8 @@
 import { Client, Callbacks, type Room } from '@colyseus/sdk';
-import type { BoardRow, FeedItem, JudgeResponse } from '../../shared/game.ts';
+import { floorDef, type BoardRow, type FeedItem, type JudgeResponse } from '../../shared/game.ts';
+import type { CourtLine } from '../../shared/court.ts';
 import { pushFeed, showBubble, toast, useGame } from './store.ts';
-import { fx, onBurn, onBurst, onPush } from './fx.ts';
-import { ambience, sfx } from './audio.ts';
+import { ambience, plead, sfx } from './audio.ts';
 import { announceFeed } from './announcer.ts';
 
 const endpoint = import.meta.env.DEV ? `${location.protocol}//${location.hostname}:2567` : location.origin;
@@ -16,8 +16,10 @@ export interface NetPlayer {
   y: number;
   z: number;
   r: number;
-  strikes: number;
-  merit: number;
+  slot: number;
+  served: number;
+  pain: number;
+  esc: number; // đang bị quỷ sai áp giải tới Pháp Trường (0 = không, 1 = tự nhận tội, 2 = chống cự nên bị cưỡng chế)
 }
 
 export interface NetObj {
@@ -32,7 +34,22 @@ export interface NetObj {
 
 /** Đối tượng schema "sống" — Colyseus tự cập nhật, đọc trực tiếp trong useFrame. */
 export const players = new Map<string, NetPlayer>();
+/** Vật thể của bản đồ — không còn nhiệm vụ nên chỉ là cảnh vật tĩnh dựng sẵn theo tầng (lồng hấp, vạc dầu, cối, cưa…). */
 export const objects = new Map<string, NetObj>();
+
+/** Dựng cảnh vật riêng của tầng (trước đây do nhiệm vụ trên server sinh ra). Chừa trống Pháp Trường & bãi xuất hiện. */
+function seedDecor(level: number) {
+  objects.clear();
+  const def = floorDef(level);
+  const free = (x: number, z: number) => !(Math.abs(x) < 5.5 && z > 4);
+  const add = (kind: string, x: number, z: number, s = 0, hp = 0) => {
+    if (free(x, z)) objects.set(`d${objects.size}`, { kind, x, y: 0, z, s, hp, owner: '' });
+  };
+  const kind: Record<number, string> = { 4: 'plate', 5: 'station', 9: 'station', 12: 'mortar', 18: 'saw' };
+  if (kind[level]) def.spots?.forEach((p) => add(kind[level], p.x, p.z, level === 4 ? 0 : 1, level === 9 ? 6 : 0));
+  if (level === 8) add('block', 0, -3);
+  if (level === 11 && def.push) add('block', def.push.from.x, def.push.from.z);
+}
 let room: Room | null = null;
 const G = () => useGame.getState();
 
@@ -51,6 +68,48 @@ export async function requestJudgement(name: string, sin: string): Promise<Judge
 }
 
 export const enterWithTicket = (level: number, ticket: string) => enterFloor(level, ticket);
+
+/* ---------- Chánh Điện ---------- */
+export interface HallSoul {
+  name: string;
+  hue: number;
+  cell: number;
+  at: number;
+  state: 'kneel' | 'up' | 'done';
+  bot: boolean; // oan hồn ảo cho điện đông vui
+}
+/** Các hồn đang quỳ trong điện (schema sống, đọc trong useFrame) */
+export const hallSouls = new Map<string, HallSoul>();
+export interface Hall {
+  room: Room;
+  ids: () => string[];
+}
+
+/** Vào Chánh Điện: quỳ ở một ô, chờ tới lượt lên khai tội. */
+export async function enterHall(name: string, hue: number, on: {
+  souls: (ids: string[]) => void;
+  turn: (id: string) => void;
+  line: (l: CourtLine | null) => void;
+  sentenced: (r: JudgeResponse) => void;
+}) {
+  const r = await client.joinOrCreate('hall', { name, hue });
+  hallSouls.clear();
+  const cb = Callbacks.get(r);
+  const ids = () => [...hallSouls.keys()];
+  cb.onAdd('souls', (s: any, id: any) => {
+    hallSouls.set(id, s);
+    on.souls(ids());
+  });
+  cb.onRemove('souls', (_s: any, id: any) => {
+    hallSouls.delete(id);
+    on.souls(ids());
+  });
+  cb.listen('turn', (v: string) => on.turn(v));
+  cb.listen('line', (v: string) => on.line(v ? JSON.parse(v) : null));
+  r.onMessage('feed', (item: FeedItem) => pushFeed(item));
+  r.onMessage('sentenced', (m: JudgeResponse) => on.sentenced(m));
+  return r;
+}
 
 /** Chỉ dùng khi dev: nhảy thẳng tới tầng bất kỳ để test. */
 export async function devJump(level: number) {
@@ -82,9 +141,9 @@ async function enterFloor(level: number, ticket: string) {
   const r = await client.joinOrCreate('floor', { level, ticket });
   room = r;
   players.clear();
-  objects.clear();
+  seedDecor(level);
   ambience(level);
-  G().set({ level, myId: r.sessionId, roomKey: G().roomKey + 1, meReady: false, others: [], objIds: [], goal: '', quiz: null, bubbles: {}, progress: 0, near: null });
+  G().set({ level, myId: r.sessionId, roomKey: G().roomKey + 1, meReady: false, others: [], objIds: [...objects.keys()], seizeAt: 0, bubbles: {}, pain: 0, nearExec: false });
 
   const cb = Callbacks.get(r);
   cb.onAdd('players', (p: any, id: any) => {
@@ -96,49 +155,40 @@ async function enterFloor(level: number, ticket: string) {
     players.delete(id);
     G().set({ others: G().others.filter((o) => o !== id) });
   });
-  cb.listen('progress', (v: number) => G().set({ progress: v }));
   cb.listen('need', (v: number) => G().set({ need: v }));
-  cb.listen('goal', (v: string) => G().set({ goal: v }));
-  cb.listen('quiz', (v: string) => G().set({ quiz: v ? JSON.parse(v) : null }));
-  cb.onAdd('objects', (o: any, id: any) => {
-    objects.set(id, o);
-    G().set({ objIds: [...G().objIds, id] });
-  });
-  cb.onRemove('objects', (_o: any, id: any) => {
-    objects.delete(id);
-    G().set({ objIds: G().objIds.filter((o) => o !== id) });
-  });
 
   r.onMessage('chat', ({ id, text }: { id: string; text: string }) => showBubble(id, text));
-  r.onMessage('fx', (e: { k: string; id?: string; x?: number; y?: number; z?: number; c?: string }) => {
-    if (e.k === 'push' && e.id) onPush(e.id);
-    else if (e.k === 'burn' && e.id) onBurn(e.id);
-    else if (e.k === 'burst') {
-      onBurst(e.x ?? 0, e.y ?? 0, e.z ?? 0, e.c ?? 'gold');
-      if (e.c === 'gold') sfx.ding();
-    }
-    else if (e.k === 'pound') {
-      fx.pounds.set(`${e.x},${e.z}`, performance.now() / 1000);
-      sfx.thud();
-      onBurst(e.x ?? 0, 1.2, e.z ?? 0, 'white');
-    } else if (e.k === 'bell') {
-      fx.bellAt = performance.now() / 1000;
-      sfx.bell();
+  r.onMessage('rest', ({ sec, next }: { sec: number; next: number }) => {
+    toast(`😮‍💨 Được nghỉ ${sec} giây… hiệp hình phạt ${next}/${G().need} sắp tới!`);
+    sfx.chain();
+    sfx.heartbeat();
+    sfx.sob(); // nghỉ giữa hiệp: khóc nấc, van xin
+    setTimeout(() => plead(), 600);
+  });
+  r.onMessage('bound', ({ id, name }: { id: string; name: string }) => {
+    sfx.chain();
+    if (id === r.sessionId) toast('⛓️ Bạn bị trói vào cọc — đao phủ chuẩn bị hành hình!');
+    else toast(`⛓️ ${name} bị trói lên cọc Pháp Trường`);
+  });
+  r.onMessage('resist', ({ sec }: { sec: number }) => G().set({ seizeAt: Date.now() + sec * 1000 }));
+  r.onMessage('escort', ({ id, name, forced }: { id: string; name: string; forced: boolean }) => {
+    sfx.chain();
+    if (id === r.sessionId) {
+      G().set({ seizeAt: 0 });
+      if (forced) {
+        sfx.scream();
+        setTimeout(() => plead('Buông ta ra! Ta không có tội! Tha cho ta…'), 500);
+      } else sfx.sob(0.8);
+      toast(forced ? '⛓️ Ngươi dám chống cự! Ngưu Đầu Mã Diện tới lôi ngươi ra Pháp Trường!' : '🙏 Đã nhận tội — Ngưu Đầu Mã Diện áp giải bạn tới Pháp Trường…');
+    } else {
+      showBubble(id, forced ? 'Buông ta ra!!!' : 'Con xin nhận tội…');
+      forced ? sfx.scream(0.6) : sfx.sob(0.6);
+      toast(forced ? `⛓️ ${name} chống cự, bị quỷ sai lôi ra Pháp Trường` : `⛓️ ${name} nhận tội, đang bị áp giải ra Pháp Trường`);
     }
   });
-  r.onMessage('hit', ({ msg, soft }: { msg: string; soft?: boolean }) => {
-    toast(msg);
-    sfx.hit();
-    if (!soft) fx.respawn = true;
-  });
-  r.onMessage('reached', ({ msg }: { msg: string }) => {
-    toast('🔔 ' + msg);
+  r.onMessage('served', ({ next }: { next: number }) => {
     sfx.bell();
-    fx.respawn = true;
-  });
-  r.onMessage('beat', () => {
-    fx.beatAt = performance.now() / 1000;
-    sfx.drum();
+    toast(next < 1 ? '✅ Chịu đủ hình phạt! Bấm E khi sẵn sàng qua cầu Nại Hà đầu thai.' : `✅ Chịu đủ hình phạt! Được tự do — bấm E khi sẵn sàng lên tầng ${next}.`);
   });
   r.onMessage('notice', ({ msg }: { msg: string }) => {
     toast(msg);
@@ -167,13 +217,8 @@ async function enterFloor(level: number, ticket: string) {
   };
   r.onMessage('pardoned', ({ level: next, ticket: t }: { level: number; ticket: string }) => {
     sfx.pardon();
-    moveTo(next, t, `🎉 Bạn đã đủ công đức, được ân xá lên tầng ${next}!`);
+    moveTo(next, t, `⛓️ Chịu đủ hình phạt — bị giải lên tầng ${next}!`);
   });
-  r.onMessage('banished', ({ level: next, ticket: t, msg }: { level: number; ticket: string; msg: string }) => {
-    sfx.banish();
-    moveTo(next, t, `⛓️ ${msg} — vi phạm 3 lần, bị đày xuống tầng ${next}!`);
-  });
-
   r.onMessage('reborn', async ({ as }: { as: string }) => {
     room = null;
     await r.leave();

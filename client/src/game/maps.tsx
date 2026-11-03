@@ -13,7 +13,6 @@ import { fx, onBurst } from '../fx.ts';
 import { Ghost } from './Ghost.tsx';
 import { Burner, Flame, GuardModel, Torch, FloatingLanterns, Ground, Mill, bronze, darkStone, stone, wood, type Look } from './World.tsx';
 import { textTexture } from './textures.ts';
-import { LETTERS, QUIZ_R, QUIZ_SPOTS } from '../../../shared/quiz.ts';
 
 type SceneProps = { level: number; look: Look };
 const glow = (r: number, g: number, b: number) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
@@ -197,7 +196,7 @@ function Zones({ level }: { level: number }) {
 }
 
 function SafeZoneMark() {
-  return <Label position={[0, 3.5, ARENA_Z + 1]}>🛡 Bãi an toàn (không tính điểm) — vào sân để sám hối</Label>;
+  return <Label position={[0, 3.5, ARENA_Z + 1]}>⛓️ Nơi quỷ sai áp giải hồn xuống tầng</Label>;
 }
 
 /* ================= Tầng 1 — Rút Lưỡi ================= */
@@ -211,74 +210,6 @@ function Stocks({ x, z, r }: { x: number; z: number; r: number }) {
         <mesh material={iron} rotation-z={0.3}><boxGeometry args={[0.1, 1.1, 0.1]} /></mesh>
         <mesh material={iron} rotation-z={-0.3}><boxGeometry args={[0.1, 1.1, 0.1]} /></mesh>
       </group>
-    </group>
-  );
-}
-
-const plateColors = ['#ff7a2f', '#ffcf4a', '#4ac8ff', '#c070ff'];
-
-function AnswerPlate({ i }: { i: number }) {
-  const s = QUIZ_SPOTS[i];
-  const letterTex = useMemo(() => textTexture([LETTERS[i]], { w: 256, h: 256, size: 200, color: '#fff', glow: plateColors[i] }), [i]);
-  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(plateColors[i]), toneMapped: false, transparent: true, opacity: 0.35, depthWrite: false }), [i]);
-  const ring = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(plateColors[i]).multiplyScalar(2.5), toneMapped: false }), [i]);
-  const base = useMemo(() => new THREE.Color(plateColors[i]), [i]);
-  useFrame(({ clock }) => {
-    const st = objects.get('a' + i)?.s ?? 0;
-    const t = clock.elapsedTime;
-    if (st === 1) {
-      mat.color.setRGB(0.4, 3, 0.6);
-      mat.opacity = 0.55 + Math.sin(t * 8) * 0.15;
-      ring.color.setRGB(1, 5, 1.4);
-    } else if (st === 2) {
-      mat.color.setRGB(2.5, 0.05, 0.05);
-      mat.opacity = 0.25 + Math.abs(Math.sin(t * 12)) * 0.3;
-      ring.color.setRGB(1.5, 0.05, 0.05);
-    } else {
-      mat.color.copy(base);
-      mat.opacity = 0.3 + Math.sin(t * 2 + i) * 0.06;
-      ring.color.copy(base).multiplyScalar(2.5);
-    }
-  });
-  return (
-    <group position={[s.x, 0, s.z]}>
-      <mesh rotation-x={-Math.PI / 2} position-y={0.05} material={mat}><circleGeometry args={[QUIZ_R, 48]} /></mesh>
-      <mesh rotation-x={-Math.PI / 2} position-y={0.07} material={ring}><torusGeometry args={[QUIZ_R, 0.1, 6, 64]} /></mesh>
-      {/* bia đá khắc chữ cái phía sau ô */}
-      <group position={[0, 0, -QUIZ_R - 0.6]}>
-        <RigidBody type="fixed" colliders={false}><CuboidCollider args={[0.9, 1.4, 0.25]} position-y={1.4} /></RigidBody>
-        <mesh material={darkStone} position-y={1.4} castShadow><boxGeometry args={[1.8, 2.8, 0.5]} /></mesh>
-        <mesh position={[0, 1.6, 0.26]}><planeGeometry args={[1.5, 1.5]} /><meshBasicMaterial map={letterTex} transparent toneMapped={false} /></mesh>
-      </group>
-    </group>
-  );
-}
-
-/** Quỷ Dối Trá lượn tới ô sai để dụ dỗ */
-function LiarImp() {
-  const ref = useRef<THREE.Group>(null);
-  const qz = useGame((s) => s.quiz);
-  useFrame((_, dt) => {
-    const g = ref.current;
-    const q = useGame.getState().quiz;
-    if (!g || !q || q.whisper < 0) return;
-    const tgt = QUIZ_SPOTS[q.whisper];
-    const k = 1 - Math.exp(-2.5 * Math.min(dt, 0.05));
-    g.position.x += (tgt.x - g.position.x) * k;
-    g.position.z += (tgt.z + 4.6 - g.position.z) * k;
-    g.position.y = 1.2 + Math.sin(performance.now() / 300) * 0.3;
-  });
-  let say = '';
-  if (qz?.phase === 'ask') say = `Ô ${LETTERS[qz.whisper]} đấy, tin ta đi! 🤫`;
-  else if (qz?.phase === 'reveal') say = qz.whisper === qz.ans ? 'Hừ… lần này ta lỡ nói thật' : 'Hê hê, lừa được mấy hồn rồi!';
-  return (
-    <group ref={ref} position={[0, 1.2, 5]}>
-      <Ghost hue={290} angryEyes scale={0.75} />
-      {say && (
-        <Html position={[0, 3, 0]} center pointerEvents="none" zIndexRange={[12, 0]}>
-          <div className="bubble" style={{ background: '#3a0a3a', color: '#ffb0ff' }}>{say}</div>
-        </Html>
-      )}
     </group>
   );
 }
@@ -304,9 +235,7 @@ function Floor1({ level, look }: SceneProps) {
   return (
     <>
       <Ground level={level} look={look} />
-      {QUIZ_SPOTS.map((_, i) => <AnswerPlate key={i} i={i} />)}
       <Judge />
-      <LiarImp />
       {[-12, -6, 0, 6].map((z, i) => (
         <group key={i}>
           <Stocks x={-22} z={z} r={Math.PI / 2} />
@@ -379,7 +308,6 @@ function Bell({ x, z }: { x: number; z: number }) {
         <mesh material={bronze} position-y={-1.3} castShadow><cylinderGeometry args={[0.9, 1.25, 2.4, 24, 1, true]} /></mesh>
         <mesh material={bronze} position-y={-0.1}><sphereGeometry args={[0.9, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2]} /></mesh>
       </group>
-      <Label position={[0, 7.4, 0]}>🔔 Chuông Sám Hối — đến đây!</Label>
     </group>
   );
 }
@@ -567,9 +495,7 @@ function Well({ x, z, label }: { x: number; z: number; label: string }) {
 
 function Floor6({ level, look }: SceneProps) {
   const c = floorDef(6).collect!;
-  const progress = useGame((s) => s.progress);
-  const need = useGame((s) => s.need);
-  const heat = 1 - progress / need;
+  const heat = 1; // cột đồng lúc nào cũng nung đỏ
   return (
     <>
       <Ground level={level} look={look} />
@@ -580,7 +506,7 @@ function Floor6({ level, look }: SceneProps) {
           <GroundRing x={t.x} z={t.z} r={t.r} color={[0.4, 1, 3]} />
         </group>
       ))}
-      <Label position={[0, 9.5, -2.5]}>銅柱 Cột đồng nung đỏ — dội nước cho nguội</Label>
+      <Label position={[0, 9.5, -2.5]}>銅柱 Cột đồng nung đỏ</Label>
       <Items level={6} />
     </>
   );
@@ -618,7 +544,6 @@ function Floor7({ level, look }: SceneProps) {
         <Flame position={[0, 0.6, 0]} scale={1.2} light={30} />
         <Label position={[0, 2.4, 0]}>⛰ Đỉnh Núi Đao</Label>
       </group>
-      <Label position={[BLADE_STEPS[0].x, 3, BLADE_STEPS[0].z]}>Bậc đầu tiên — nhảy bằng Space</Label>
     </>
   );
 }
@@ -668,7 +593,7 @@ function Floor8({ level, look }: SceneProps) {
         <Flame position={[-1, 0.6, 0]} light={40} scale={1.6} />
         <Flame position={[1, 0.6, 0.5]} light={0} scale={1.4} />
         <Flame position={[0, 0.6, -1]} light={0} scale={1.8} />
-        <Label position={[0, 4, 0]}>🔥 Hố Lửa — đẩy khối băng vào đây</Label>
+        <Label position={[0, 4, 0]}>🔥 Hố Lửa</Label>
       </group>
       {ids.map((id) => <PushBlock key={id} id={id} level={8} />)}
     </>
@@ -693,7 +618,6 @@ function Floor11({ level, look }: SceneProps) {
       {[[-18, -12, 2.4], [17, -11, 3], [-16, 6, 2], [18, 6, 2.6]].map(([x, z, s], i) => (
         <mesh key={i} material={stone} position={[x, s * 0.8, z]} scale={s} castShadow><dodecahedronGeometry args={[1, 0]} /></mesh>
       ))}
-      <Label position={[d.to.x, 4, d.to.z]}>➡ Lăn đá tới đây để giải thoát vong hồn</Label>
       {ids.map((id) => <PushBlock key={id} id={id} level={11} />)}
     </>
   );
@@ -772,7 +696,7 @@ function Drum() {
         ))}
       </group>
       <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.07} material={ringMat}><torusGeometry args={[1, 0.05, 6, 48]} /></mesh>
-      <Label position={[0, 3.4, 0]}>🥁 Trống nhịp — giã cối theo tiếng trống</Label>
+      <Label position={[0, 3.4, 0]}>🥁 Trống giã cối</Label>
     </group>
   );
 }
@@ -796,9 +720,7 @@ function Floor12({ level, look }: SceneProps) {
 /* ================= Tầng 13 — Ao Máu ================= */
 function Floor13({ level, look }: SceneProps) {
   const c = floorDef(13).collect!;
-  const progress = useGame((s) => s.progress);
-  const need = useGame((s) => s.need);
-  const built = Math.min(BRIDGE_PLANKS, Math.floor((progress / need) * BRIDGE_PLANKS + 1e-6));
+  const built = BRIDGE_PLANKS; // cầu bắc sẵn qua bể máu
   const W = 27, D = 19;
   const pieces = useMemo(
     () => [
@@ -833,10 +755,7 @@ function Floor13({ level, look }: SceneProps) {
       ))}
       <group position={[c.source!.x, 0, c.source!.z]}>
         {[0, 1, 2, 3].map((i) => <mesh key={i} material={wood} position={[0, 0.2 + i * 0.32, 0]} rotation-y={i * 0.4}><boxGeometry args={[3, 0.3, 0.7]} /></mesh>)}
-        <Label position={[0, 2.6, 0]}>🪵 Bãi gỗ — vác ván</Label>
       </group>
-      <GroundRing x={c.targets[0].x} z={c.targets[0].z} r={c.targets[0].r} />
-      <Label position={[0, 2.8, c.targets[0].z]}>Bờ ao — đặt ván bắc cầu ({built}/{BRIDGE_PLANKS})</Label>
       <Items level={13} />
     </>
   );
@@ -880,9 +799,7 @@ function Wanderer({ i }: { i: number }) {
 
 function Floor14({ level, look }: SceneProps) {
   const c = floorDef(14).collect!;
-  const progress = useGame((s) => s.progress);
-  const need = useGame((s) => s.need);
-  const lit = Math.floor((progress / need) * c.targets.length + 1e-6);
+  const lit = 0; // thành u tối, đèn không bao giờ sáng
   return (
     <>
       <Ground level={level} look={look} />
@@ -897,10 +814,9 @@ function Floor14({ level, look }: SceneProps) {
         <mesh material={stone} position-y={1.2}><boxGeometry args={[2.6, 2.4, 2]} /></mesh>
         <mesh material={darkStone} position-y={2.8} rotation-y={Math.PI / 4}><coneGeometry args={[2.2, 1.2, 4]} /></mesh>
         <mesh position={[0, 1.2, 1.01]} material={glow(2.5, 1.2, 0.4)}><planeGeometry args={[0.9, 1.2]} /></mesh>
-        <Label position={[0, 4.4, 0]}>🏮 Miếu đèn — lấy đèn ở đây</Label>
       </group>
       {Array.from({ length: 7 }, (_, i) => <Wanderer key={i} i={i} />)}
-      <Label position={[0, 6, -3]}>枉死城 Thắp đèn dẫn lối cho vong hồn ({lit}/{c.targets.length})</Label>
+      <Label position={[0, 6, -3]}>枉死城 Thành Uổng Tử</Label>
       <Items level={14} />
     </>
   );
@@ -1018,7 +934,6 @@ function Floor18({ level, look }: SceneProps) {
           {[0, 1, 2].map((j) => <mesh key={j} material={wood} position={[0, 0.6 + j * 1.1, 0]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.55, 0.55, 5, 12]} /></mesh>)}
         </group>
       ))}
-      <Label position={[0, 4, -4]}>🪚 Hai đầu cưa luân phiên — đứng vào vòng sáng rồi bấm E</Label>
     </>
   );
 }

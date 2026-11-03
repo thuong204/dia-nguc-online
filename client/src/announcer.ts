@@ -12,15 +12,10 @@ export function announceFeed(it: FeedItem) {
       sfx.chain();
       announce(`${it.name} bị đày xuống Tầng ${f.level}, ${f.name}, vì tội ${f.sin.toLowerCase()}.`);
       break;
-    case 'banish':
-      if (!f) return;
-      sfx.banish();
-      announce(`${it.name} vi phạm ba lần, bị đày xuống Tầng ${f.level}, ${f.name}!`, 'hac');
-      break;
     case 'pardon':
-      if (!f) return; // ân xá ở tầng 1 → đọc ở tin đầu thai
+      if (!f) return; // xong tầng 1 → đọc ở tin đầu thai
       sfx.bell();
-      announce(`${it.name} đủ công đức, được ân xá lên Tầng ${f.level}.`);
+      announce(`${it.name} chịu đủ hình phạt, bị giải lên Tầng ${f.level}.`);
       break;
     case 'reborn':
       sfx.pardon();

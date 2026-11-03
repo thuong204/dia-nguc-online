@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { FLOORS } from '../../shared/game.ts';
 import { devJump, fetchOverview } from './net.ts';
-import { ambience, checkVoice, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
+import { ambience, isMuted, onMuteChange, setMuted, sfx, speak, stopSpeak } from './audio.ts';
 import { useGame } from './store.ts';
 import { Feed } from './ui/Feed.tsx';
 import { Leaderboard } from './ui/Leaderboard.tsx';
@@ -31,7 +31,7 @@ function Judge() {
         <p className="sub">
           Hồn vừa lìa khỏi xác. Hắc Bạch Vô Thường sẽ dẫn bạn qua Quỷ Môn Quan, quỳ trước Diêm La Vương để bị tra hỏi. Khai thật hay khai gian, Gương Nghiệt đều soi thấy.
           <br />
-          Mười tám tầng địa ngục, mỗi tầng một tội. Cùng các vong hồn sám hối — ai làm nấy hưởng công đức, đủ công đức thì được lên tầng trên. <b>Vi phạm 3 lần sẽ bị đày xuống tầng sâu hơn.</b> Qua hết tầng 1 thì tới cầu Nại Hà gặp Mạnh Bà.
+          Mười tám tầng địa ngục, mỗi tầng một tội, một cực hình. Xuống tầng nào là bị hành hình theo tội của tầng đó — <b>chịu đủ hình phạt mới bị giải lên tầng trên</b>. Chịu xong tầng 1 thì tới cầu Nại Hà gặp Mạnh Bà đi đầu thai.
         </p>
         <form
           onSubmit={(e) => {
@@ -50,7 +50,6 @@ function Judge() {
           </label>
           <button type="submit" className="primary">Ra trình diện Diêm Vương</button>
           <p className="small">🔊 Nên bật loa để nghe Diêm Vương tra hỏi.</p>
-          <VoiceWarning />
         </form>
         {import.meta.env.DEV && (
           <label style={{ marginTop: 12, display: 'block' }}>
@@ -65,8 +64,8 @@ function Judge() {
         )}
       </div>
       <aside className="card feed-card">
-        <h3>🏆 Bảng sám hối</h3>
-        <p className="small">Xếp theo tổng công đức tích được qua mọi tầng.</p>
+        <h3>🏆 Chịu hình nhiều tầng nhất</h3>
+        <p className="small">Đã đầu thai xếp trước, sau đó theo số tầng đã chịu xong.</p>
         <Leaderboard />
         <h3 style={{ marginTop: 18 }}>📜 Sổ Sinh Tử (trực tiếp)</h3>
         <Feed />
@@ -116,20 +115,6 @@ function Reborn() {
         )}
       </div>
     </section>
-  );
-}
-
-function VoiceWarning() {
-  const [ok, setOk] = useState(true);
-  useEffect(() => {
-    checkVoice().then(setOk);
-  }, []);
-  if (ok) return null;
-  return (
-    <p className="small voice-warn">
-      ⚠ Trình duyệt này chưa có giọng đọc tiếng Việt nên Diêm Vương sẽ chỉ hiện chữ (vẫn có nhạc và hiệu ứng).
-      Muốn nghe giọng: dùng <b>Microsoft Edge</b> (giọng HoaiMy rất tự nhiên), hoặc Chrome trên Windows / Android / iPhone.
-    </p>
   );
 }
 

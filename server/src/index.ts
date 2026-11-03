@@ -6,6 +6,7 @@ import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { FLOORS, judge, type JudgeResponse } from '../../shared/game.ts';
 import { FloorRoom } from './FloorRoom.ts';
+import { HallRoom } from './HallRoom.ts';
 import { randomUUID } from 'node:crypto';
 import { addFeed, feed, issueTicket, leaderboard, stats } from './hub.ts';
 
@@ -50,6 +51,7 @@ const gameServer = new Server({
 });
 
 gameServer.define('floor', FloorRoom).filterBy(['level']);
+gameServer.define('hall', HallRoom);
 
 await gameServer.listen(PORT);
 console.log(`👹 Địa Ngục Online server: http://localhost:${PORT}`);

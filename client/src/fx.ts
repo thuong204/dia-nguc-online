@@ -7,6 +7,7 @@ export const fx = {
   queue: [] as FxEvent[],
   jumpRequested: false,
   respawn: false,
+  blood: [] as { x: number; y: number; z: number }[], // điểm phun máu chờ vẽ
   beatAt: 0, // performance.now()/1000 của nhịp trống gần nhất
   pounds: new Map<string, number>(), // vị trí cối "x,z" -> thời điểm giã
   bellAt: 0,

@@ -5,6 +5,7 @@ import { CuboidCollider, CylinderCollider, RigidBody } from '@react-three/rapier
 import * as THREE from 'three';
 import { BOUNDS, SPOTS } from '../../../shared/game.ts';
 import { FloorScene } from './maps.tsx';
+import { ExecGround } from './ExecGround.tsx';
 import { useGame } from '../store.ts';
 import { fx } from '../fx.ts';
 import { Ghost } from './Ghost.tsx';
@@ -203,9 +204,6 @@ function Gate({ level }: { level: number }) {
 
 export function Mill() {
   const top = useRef<THREE.Group>(null);
-  const progress = useGame((s) => s.progress);
-  const need = useGame((s) => s.need);
-  const arc = Math.max(0.0001, (progress / need) * Math.PI * 2);
   useFrame((_, dt) => {
     if (top.current) top.current.rotation.y += fx.millSpin * dt * 0.6 + dt * 0.05;
     fx.millSpin *= Math.pow(0.3, dt);
@@ -241,11 +239,8 @@ export function Mill() {
       <mesh material={dimRing} rotation-x={-Math.PI / 2} position-y={0.06}>
         <torusGeometry args={[3.8, 0.12, 6, 96]} />
       </mesh>
-      <mesh material={goldGlow} rotation={[-Math.PI / 2, 0, Math.PI / 2]} position-y={0.1}>
-        <torusGeometry args={[3.8, 0.14, 6, 96, arc]} />
-      </mesh>
       <Html position={[0, 3.6, 0]} center pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="spot-tag">⚙️ Cối xay nghiệp · {progress}/{need}</div>
+        <div className="spot-tag">⚙️ Cối xay nghiệp</div>
       </Html>
       <Torch x={-6} z={-5} />
       <Torch x={6} z={-5} />
@@ -326,7 +321,7 @@ function Guard({ kind, position }: { kind: 'bull' | 'horse'; position: [number, 
 }
 
 /** Ngưu Đầu (bull) / Mã Diện (horse) — dùng ở cổng và cho quỷ sai đi tuần. */
-export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: string }) {
+export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: string | null }) {
   const ref = useRef<THREE.Group>(null);
   const phase = useMemo(() => Math.random() * 10, []);
   useFrame(({ clock }) => {
@@ -373,9 +368,11 @@ export function GuardModel({ kind, label }: { kind: 'bull' | 'horse'; label?: st
           <mesh material={steel} position-y={1.62}><boxGeometry args={[0.45, 0.06, 0.06]} /></mesh>
         </group>
       </group>
-      <Html position={[0, 5.4, 0]} center pointerEvents="none" zIndexRange={[10, 0]}>
-        <div className="tag">{label ?? (kind === 'bull' ? 'Ngưu Đầu' : 'Mã Diện')}</div>
-      </Html>
+      {label !== null && (
+        <Html position={[0, 5.4, 0]} center pointerEvents="none" zIndexRange={[10, 0]}>
+          <div className="tag">{label ?? (kind === 'bull' ? 'Ngưu Đầu' : 'Mã Diện')}</div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -388,6 +385,7 @@ export function World({ level }: { level: number }) {
       <Rocks />
       <Gate level={level} />
       <FloorScene level={level} look={look} />
+      <ExecGround level={level} look={look} />
     </>
   );
 }

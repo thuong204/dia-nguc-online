@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { players } from '../net.ts';
 import { useGame } from '../store.ts';
-import { Ghost } from './Ghost.tsx';
+import { Convict } from './Convict.tsx';
 
 function lerpAngle(a: number, b: number, t: number) {
   const d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -33,7 +33,7 @@ function Remote({ id }: { id: string }) {
   if (!p) return null;
   return (
     <group>
-      <Ghost ref={ref} hue={p.hue} id={id} name={p.name} />
+      <Convict ref={ref} hue={p.hue} id={id} name={p.name} />
     </group>
   );
 }

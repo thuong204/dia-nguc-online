@@ -220,4 +220,50 @@ kbd { font-size: 11px; background: #0008; padding: 1px 5px; border-radius: 4px; 
 .side .panel { padding: 10px 12px; }
 .side .panel h3 { margin: 0 0 6px; }
 .feed li.banish b { color: #ff5a4a; }
-.voice-warn { color: #ffb08a; background: #3a0e0a88; border: 1px solid #7a2a1a; border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
+
+/* ---- Chịu hình: khung phim ---- */
+.pain-veil { position: absolute; inset: 0; z-index: 6; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, #6a000433 78%, #2a0002aa 100%); animation: pain-pulse 0.9s ease-in-out infinite alternate; }
+@keyframes pain-pulse { from { opacity: 0.85; } to { opacity: 1; } }
+.cine-bar { position: absolute; left: 0; right: 0; height: 11vh; background: #000; animation: cine-in 0.5s ease-out both; }
+.cine-bar.top { top: 0; transform-origin: top; }
+.cine-bar.bottom { bottom: 0; transform-origin: bottom; }
+@keyframes cine-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.pain-box { position: absolute; left: 50%; bottom: 0; height: 11vh; min-height: 64px; transform: translateX(-50%); width: min(760px, calc(100% - 32px));
+  display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 2px; }
+.pain-title { font: 600 12px 'Be Vietnam Pro', sans-serif; letter-spacing: 3px; text-transform: uppercase; color: #c0473a; }
+.pain-what { font: 500 italic 18px 'Noto Serif TC', Georgia, serif; color: #f2e6da; text-shadow: 0 2px 6px #000; }
+.pain-why { font-size: 12px; color: #9a8478; }
+.pain-bar { width: 220px; height: 2px; margin-top: 4px; background: #2a0a08; overflow: hidden; }
+.pain-bar i { display: block; height: 100%; width: 100%; background: #b02a1a; transform-origin: left; animation: pain-left linear forwards; }
+@keyframes pain-left { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---- Pháp Trường ---- */
+.exec-tag { text-align: center; border-color: #ff3a1a; color: #ffd27a; }
+.exec-tag small { display: block; font-size: 12px; font-weight: 700; color: #ffb8a0; margin-top: 2px; }
+.slot-no { font: 900 13px 'Be Vietnam Pro', sans-serif; color: #ffcf8a; background: #000b; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #ff5a2a; }
+.act:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- Chánh Điện: hàng chờ khai tội ---- */
+.hall-queue { position: absolute; z-index: 5; top: 16px; left: 16px; width: min(300px, calc(100% - 32px)); max-height: 46vh; overflow: auto; padding: 12px 14px; border-radius: 14px; background: #0d0303d8; border: 1px solid #7a2a1a; backdrop-filter: blur(4px); }
+.hall-queue h3 { margin: 0 0 4px; font-size: 15px; color: var(--gold); }
+.hall-queue ol { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; }
+.hall-queue li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; }
+.hall-queue li.cur { background: #5a0d0acc; color: #ffd27a; font-weight: 800; }
+.hall-queue li.me { outline: 1px solid #c8902a; }
+.hall-queue .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.hall-queue .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hall-queue .st { color: var(--muted); font-size: 12px; }
+.dialog-answer .chips button:disabled { opacity: 0.55; cursor: default; }
+.dialog.verdict { cursor: default; }
+
+/* ---- Chánh Điện: ô trả lời Diêm Vương ở dưới cùng ---- */
+.tribunal .dialog { bottom: 78px; }
+.hall-input { position: absolute; z-index: 6; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); display: flex; gap: 8px; }
+.hall-input input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 10px; border: 1px solid #7a2a1a; background: #0d0303e8; color: var(--text); font: inherit; }
+.hall-input .primary { width: auto; margin: 0; padding: 0 20px; }
+.hall-input input:disabled, .hall-input .primary:disabled { opacity: 0.5; }
+.hall-input.answering input { border-color: var(--gold); box-shadow: 0 0 0 2px #f5c04a44; }
+@media (max-width: 760px) {
+  .hall-queue { max-height: 30vh; }
+}

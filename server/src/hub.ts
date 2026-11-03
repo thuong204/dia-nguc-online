@@ -56,11 +56,11 @@ setInterval(() => {
   for (const [k, v] of tickets) if (v.exp < now) tickets.delete(k);
 }, 30_000).unref();
 
-/* ---- Bảng xếp hạng sám hối: cộng dồn công đức của mỗi hồn qua mọi tầng ---- */
+/* ---- Bảng xếp hạng: hồn chịu xong nhiều tầng nhất ---- */
 const board = new Map<string, BoardRow>();
 let boardTimer: NodeJS.Timeout | null = null;
 export function leaderboard(n = 10): BoardRow[] {
-  return [...board.values()].sort((a, b) => b.merit - a.merit || b.pardons - a.pardons).slice(0, n);
+  return [...board.values()].sort((a, b) => Number(b.reborn) - Number(a.reborn) || b.pardons - a.pardons).slice(0, n);
 }
 function boardChanged() {
   if (boardTimer) return;
@@ -72,20 +72,16 @@ function boardChanged() {
 function row(soul: Soul, level: number) {
   let r = board.get(soul.id);
   if (!r) {
-    r = { id: soul.id, name: soul.name, hue: soul.hue, merit: 0, pardons: 0, level, reborn: false };
+    r = { id: soul.id, name: soul.name, hue: soul.hue, pardons: 0, level, reborn: false };
     board.set(soul.id, r);
     if (board.size > 500) {
-      // bỏ bớt người ít công đức nhất cho nhẹ bộ nhớ
-      const worst = [...board.values()].sort((a, b) => a.merit - b.merit)[0];
+      // bỏ bớt người qua ít tầng nhất cho nhẹ bộ nhớ
+      const worst = [...board.values()].sort((a, b) => a.pardons - b.pardons)[0];
       board.delete(worst.id);
     }
   }
   r.level = level;
   return r;
-}
-export function addMerit(soul: Soul, level: number, n: number) {
-  row(soul, level).merit += n;
-  boardChanged();
 }
 export function notePardon(soul: Soul, level: number, reborn = false) {
   const r = row(soul, level);
