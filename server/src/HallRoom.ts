@@ -4,10 +4,10 @@ import { Room, type Client } from '@colyseus/core';
 import { schema, t } from '@colyseus/schema';
 import { randomUUID } from 'node:crypto';
 import { FLOORS } from '../../shared/game.ts';
-import { ANSWER_TIME, BOT_FILL, BOT_NAMES, HALL_CELLS, classify, drawTurn, floorName, sentence, type CourtLine, type Opt, type Who } from '../../shared/court.ts';
+import { ANSWER_TIME, HALL_CELLS, classify, drawTurn, floorName, sentence, type CourtLine, type Opt, type Who } from '../../shared/court.ts';
 import { addFeed, issueTicket } from './hub.ts';
 
-const Soul = schema({ name: t.string(), hue: t.uint16(), cell: t.int8(), at: t.float64(), state: t.string(), bot: t.boolean() }, 'HallSoul');
+const Soul = schema({ name: t.string(), hue: t.uint16(), cell: t.int8(), at: t.float64(), state: t.string() }, 'HallSoul');
 type Soul = InstanceType<typeof Soul>;
 const HallState = schema({ souls: t.map(Soul), turn: t.string(), line: t.string() }, 'HallState');
 type HallState = InstanceType<typeof HallState>;
@@ -26,7 +26,6 @@ export class HallRoom extends Room<{ state: HallState }> {
   private running = false;
   private answer: ((i: number | Opt) => void) | null = null;
   private ids = new Map<string, string>(); // sessionId -> id hồn (dùng cho Sổ Sinh Tử / bảng xếp hạng)
-  private botSeq = 0;
 
   onCreate() {
     this.state.turn = '';
@@ -39,10 +38,7 @@ export class HallRoom extends Room<{ state: HallState }> {
       const msg = clean(text, 90);
       if (msg && client.sessionId === this.state.turn && this.answer) this.answer(classify(msg));
     });
-    this.setSimulationInterval(() => {
-      this.fillBots();
-      this.next();
-    }, 500);
+    this.setSimulationInterval(() => this.next(), 500);
   }
 
   private freeCell() {
@@ -50,39 +46,14 @@ export class HallRoom extends Room<{ state: HallState }> {
     return HALL_CELLS.findIndex((_, i) => !taken.has(i));
   }
 
-  /** Giữ điện luôn có khoảng BOT_FILL hồn quỳ (thêm hồn ảo khi vắng). */
-  private fillBots() {
-    if (!this.clients.length) return; // không ai xem thì thôi
-    const used = new Set([...this.state.souls.values()].map((s) => s.name));
-    while (this.state.souls.size < BOT_FILL) {
-      const cell = this.freeCell();
-      if (cell < 0) return;
-      const free = BOT_NAMES.filter((n) => !used.has(n));
-      const name = free[Math.floor(Math.random() * free.length)] ?? `Oan hồn ${this.botSeq + 1}`;
-      used.add(name);
-      const s = new Soul();
-      Object.assign(s, { name, hue: Math.floor(Math.random() * 360), cell, at: Date.now() + Math.random() * 1000, state: 'kneel', bot: true });
-      this.state.souls.set(`bot${++this.botSeq}`, s);
-    }
-  }
-
   onJoin(client: Client, options: { name?: string; hue?: number }) {
-    let cell = this.freeCell();
-    if (cell < 0) {
-      // hết ô: một hồn ảo đang quỳ nhường chỗ cho người thật
-      const bot = [...this.state.souls.entries()].find(([, s]) => s.bot && s.state === 'kneel');
-      if (bot) {
-        cell = bot[1].cell;
-        this.state.souls.delete(bot[0]);
-      }
-    }
+    const cell = this.freeCell();
     const s = new Soul();
     s.name = clean(options?.name, 18) || 'Hồn Vô Danh';
     s.hue = Number.isFinite(options?.hue) ? Math.floor(Number(options.hue)) % 360 : Math.floor(Math.random() * 360);
     s.cell = cell;
     s.at = Date.now();
     s.state = 'kneel';
-    s.bot = false;
     this.state.souls.set(client.sessionId, s);
     this.ids.set(client.sessionId, randomUUID());
   }
@@ -92,12 +63,12 @@ export class HallRoom extends Room<{ state: HallState }> {
     this.ids.delete(client.sessionId);
   }
 
-  /** Gọi hồn kế tiếp: người thật trước (đến trước lên trước), hết người thật mới tới hồn ảo. */
+  /** Gọi hồn kế tiếp: ai đến trước lên trước. */
   private next() {
     if (this.running || !this.clients.length) return;
     const waiting = [...this.state.souls.entries()]
       .filter(([, s]) => s.state === 'kneel')
-      .sort((a, b) => Number(a[1].bot) - Number(b[1].bot) || a[1].at - b[1].at);
+      .sort((a, b) => a[1].at - b[1].at);
     if (!waiting.length) return;
     const [id, soul] = waiting[0];
     this.running = true;
@@ -147,8 +118,6 @@ export class HallRoom extends Room<{ state: HallState }> {
         else res({ o: opts[i], silent: false });
       };
       this.answer = done;
-      // hồn ảo tự khai sau vài giây
-      if (this.state.souls.get(id)?.bot) this.clock.setTimeout(() => this.answer === done && done(Math.floor(Math.random() * opts.length)), 2500 + Math.random() * 3000);
     });
   }
 
@@ -156,7 +125,7 @@ export class HallRoom extends Room<{ state: HallState }> {
     const name = soul.name;
     const turn = drawTurn();
     const { sc, age } = turn;
-    const asks = soul.bot ? turn.asks.slice(0, 1) : turn.asks; // hồn ảo khai ngắn hơn
+    const asks = turn.asks;
     soul.state = 'up';
     this.state.turn = id;
     const chosen: Opt[] = [];
@@ -202,12 +171,6 @@ export class HallRoom extends Room<{ state: HallState }> {
     await this.say(id, 'phan', 'Bẩm Đại Vương, Sổ Sinh Tử đã đối chiếu xong.');
     await this.say(id, 'diem', `Phán! Hồn ${name} phạm tội: ${f.sin.toLowerCase()}${s.lighter ? ', nhưng xét có tình tiết được giảm nhẹ' : ''}. Đày xuống Tầng ${s.level}, ${f.name}!`);
     soul.state = 'done';
-    if (soul.bot) {
-      // hồn ảo: bị áp giải ra cổng rồi biến mất, không ghi Sổ Sinh Tử
-      await this.say(id, 'hac', `Đi! Ngưu Đầu, Mã Diện đang chờ ở cổng Tầng ${s.level}.`);
-      this.clock.setTimeout(() => this.state.souls.delete(id), 6000);
-      return;
-    }
     const client = this.clients.find((c) => c.sessionId === id);
     const soulId = this.ids.get(id) ?? randomUUID();
     const ticket = issueTicket({ id: soulId, name, sin: chosen.map((o) => o.t).join('. '), hue: soul.hue, level: s.level });

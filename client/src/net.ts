@@ -76,7 +76,6 @@ export interface HallSoul {
   cell: number;
   at: number;
   state: 'kneel' | 'up' | 'done';
-  bot: boolean; // oan hồn ảo cho điện đông vui
 }
 /** Các hồn đang quỳ trong điện (schema sống, đọc trong useFrame) */
 export const hallSouls = new Map<string, HallSoul>();

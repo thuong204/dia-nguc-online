@@ -44,16 +44,6 @@ export const HALL_CELLS = (() => {
 export const CONFESS_SPOT = { x: 0, z: -1.4 };
 export const ANSWER_TIME = 20;
 
-/** Oan hồn ảo quỳ sẵn trong điện cho đông vui; người thật luôn được lên trước */
-export const BOT_FILL = 3;
-export const BOT_NAMES = [
-  'Nguyễn Văn Tèo', 'Trần Thị Nở', 'Lê Văn Tý', 'Phạm Thị Mận', 'Hoàng Văn Sửu', 'Đỗ Thị Đào', 'Bùi Văn Dần', 'Vũ Thị Lựu',
-  'Đặng Văn Mão', 'Ngô Thị Cúc', 'Dương Văn Tuất', 'Lý Thị Hồng', 'Phan Văn Khỏe', 'Hồ Thị Lan', 'Trịnh Văn Bảo', 'Mai Thị Hoa',
-  'Cao Văn Lộc', 'Tạ Thị Yến', 'Lương Văn Phát', 'Đinh Thị Thơm', 'Chu Văn Tài', 'Kiều Thị Nga', 'Lâm Văn Đức', 'Quách Thị Xuân',
-  'Bá Kiến', 'Chí Phèo', 'Thị Nở', 'Xuân Tóc Đỏ', 'Nghị Hách', 'Lão Hạc', 'Cô Tư Bán Cá', 'Ông Ba Bị', 'Bà Tám Hàng Xóm',
-  'Anh Bảy Xe Ôm', 'Chú Năm Chủ Thầu', 'Cô Sáu Cho Vay', 'Thầy Bói Mù', 'Hai Lúa', 'Ba Khía', 'Tư Ếch',
-];
-
 export const SCENARIOS: Scenario[] = [
   {
     death: 'chết đuối dưới sông lúc nửa đêm',

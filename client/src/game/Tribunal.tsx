@@ -199,8 +199,8 @@ export default function Tribunal() {
   const queue = ids
     .map((id) => ({ id, s: hallSouls.get(id)! }))
     .filter((q) => q.s && q.s.state !== 'done')
-    // đúng thứ tự server gọi: người đang khai, rồi người thật (đến trước lên trước), rồi oan hồn ảo
-    .sort((a, b) => Number(b.id === turn) - Number(a.id === turn) || Number(a.s.bot) - Number(b.s.bot) || a.s.at - b.s.at);
+    // đúng thứ tự server gọi: người đang khai, rồi ai đến trước lên trước
+    .sort((a, b) => Number(b.id === turn) - Number(a.id === turn) || a.s.at - b.s.at);
   const myPos = queue.findIndex((q) => q.id === myId);
   const confessor = hallSouls.get(turn);
   const answering = mine && !!line?.opts && !verdict;
@@ -237,7 +237,7 @@ export default function Tribunal() {
           {queue.map((q, i) => (
             <li key={q.id} className={q.id === turn ? 'cur' : q.id === myId ? 'me' : ''}>
               <span className="dot" style={{ background: `hsl(${q.s.hue} 55% 45%)` }} />
-              <span className="nm">{q.s.name}{q.id === myId ? ' (bạn)' : q.s.bot ? ' · oan hồn' : ''}</span>
+              <span className="nm">{q.s.name}{q.id === myId ? ' (bạn)' : ''}</span>
               <span className="st">{q.id === turn ? 'đang khai' : `#${i + 1}`}</span>
             </li>
           ))}
